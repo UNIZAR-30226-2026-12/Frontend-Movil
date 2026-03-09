@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import com.example.random_reversi.ui.screens.LandingScreen
 import com.example.random_reversi.ui.screens.LoginScreen
+import com.example.random_reversi.ui.screens.MainScreen
 import com.example.random_reversi.ui.screens.RegisterScreen
 import com.example.random_reversi.ui.theme.ReversiTheme
 
@@ -28,10 +29,21 @@ fun AppNavigation() {
     var showLoginModal by remember { mutableStateOf(false) }
     var showRegisterModal by remember { mutableStateOf(false) }
 
-    LandingScreen(
-        onLoginClick = { showLoginModal = true },
-        onRegisterClick = { showRegisterModal = true }
-    )
+    when (currentScreen) {
+        "landing" -> {
+            LandingScreen(
+                onLoginClick = { showLoginModal = true },
+                onRegisterClick = { showRegisterModal = true }
+            )
+        }
+        "menu" -> {
+            MainScreen(
+                onNavigate = { screen ->
+                    currentScreen = screen
+                }
+            )
+        }
+    }
 
     LoginScreen(
         isOpen = showLoginModal,
