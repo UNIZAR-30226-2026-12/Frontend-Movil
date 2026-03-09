@@ -202,7 +202,7 @@ fun MainScreen(
         // Barra de usuario (esquina superior derecha)
         UserBar(
             userName = userName,
-            onLogout = { onNavigate("landing") },
+            onLogout = { onNavigate("home") },
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 48.dp, end = 12.dp)
