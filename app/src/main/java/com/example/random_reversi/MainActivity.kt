@@ -5,8 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+// Importa las pantallas
 import com.example.random_reversi.ui.screens.HomeScreen
 import com.example.random_reversi.ui.screens.MainScreen
+import com.example.random_reversi.ui.screens.CustomizationScreen
+import com.example.random_reversi.ui.screens.FriendsScreen
 import com.example.random_reversi.ui.theme.ReversiTheme
 
 class MainActivity : ComponentActivity() {
@@ -23,6 +28,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation() {
+    // Estado para controlar la navegación simple
     var currentScreen by remember { mutableStateOf("home") }
 
     when (currentScreen) {
@@ -35,6 +41,13 @@ fun AppNavigation() {
         }
         "menu" -> {
             MainScreen(
+                onNavigate = { screen ->
+                    currentScreen = screen
+                }
+            )
+        }
+        "customization" -> {
+            CustomizationScreen(
                 onNavigate = { screen ->
                     currentScreen = screen
                 }
