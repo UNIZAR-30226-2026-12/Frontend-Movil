@@ -53,5 +53,12 @@ fun AppNavigation() {
                 }
             )
         }
+        "friends" -> {
+            FriendsScreen(
+                onNavigate = { screen ->
+                    currentScreen = screen
+                }
+            )
+        }
     }
 }
