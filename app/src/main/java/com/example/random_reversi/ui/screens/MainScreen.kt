@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -138,13 +140,14 @@ fun MainScreen(
                 )
             }
 
-            // Tarjetas de opciones 2x2
+            // Tarjetas de opciones
             Column(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .fillMaxWidth(0.9f),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Fila 1
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -165,6 +168,7 @@ fun MainScreen(
                     )
                 }
 
+                // Fila 2
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -184,6 +188,16 @@ fun MainScreen(
                         onClick = { onNavigate("friends") }
                     )
                 }
+
+                // NUEVO: Botón Ancho (Reglas del juego)
+                MenuCard(
+                    icon = "📘",
+                    title = "Reglas del juego",
+                    description = "Aprende a jugar a Random Reversi",
+                    modifier = Modifier.fillMaxWidth(),
+                    isWide = true,
+                    onClick = { onNavigate("rules") }
+                )
             }
 
             Spacer(modifier = Modifier.height(40.dp))
@@ -199,7 +213,7 @@ fun MainScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // Barra de usuario (esquina superior derecha)
+        // Barra de usuario
         UserBar(
             userName = userName,
             onLogout = { onNavigate("home") },
@@ -209,12 +223,10 @@ fun MainScreen(
         )
     }
 
-    // Modal para seleccionar modo de IA
     GameModeModal(
         isOpen = showGameModeModal,
         onClose = { showGameModeModal = false },
         onSelectMode = { mode ->
-            // TODO: Navegar a la pantalla de juego con el modo seleccionado
             showGameModeModal = false
         }
     )
@@ -226,38 +238,65 @@ private fun MenuCard(
     title: String,
     description: String,
     modifier: Modifier = Modifier,
+    isWide: Boolean = false, // Parámetro para definir si es ancho
     onClick: () -> Unit
 ) {
     Surface(
         modifier = modifier
-            .aspectRatio(1f)
+            .then(if (isWide) Modifier.fillMaxWidth() else Modifier.aspectRatio(1f))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         color = SurfaceColor,
         border = BorderStroke(1.dp, BorderColor)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(text = icon, fontSize = 36.sp, modifier = Modifier.padding(bottom = 8.dp))
-            Text(
-                text = title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextColor,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = description,
-                fontSize = 11.sp,
-                color = TextMutedColor,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+        if (isWide) {
+            // Diseño horizontal para el botón ancho
+            Row(
+                modifier = Modifier
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(text = icon, fontSize = 32.sp)
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextColor
+                    )
+                    Text(
+                        text = description,
+                        fontSize = 12.sp,
+                        color = TextMutedColor
+                    )
+                }
+            }
+        } else {
+            // Diseño cuadrado original
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(text = icon, fontSize = 36.sp, modifier = Modifier.padding(bottom = 8.dp))
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextColor,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = description,
+                    fontSize = 11.sp,
+                    color = TextMutedColor,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
         }
     }
 }
@@ -281,7 +320,6 @@ private fun UserBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Avatar placeholder
             Surface(
                 modifier = Modifier
                     .size(32.dp)
