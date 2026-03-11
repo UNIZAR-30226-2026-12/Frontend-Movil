@@ -13,6 +13,7 @@ import com.example.random_reversi.ui.screens.MainScreen
 import com.example.random_reversi.ui.screens.CustomizationScreen
 import com.example.random_reversi.ui.screens.FriendsScreen
 import com.example.random_reversi.ui.screens.RulesScreen
+import com.example.random_reversi.ui.screens.OnlineGameScreen
 import com.example.random_reversi.ui.theme.ReversiTheme
 
 class MainActivity : ComponentActivity() {
@@ -63,6 +64,13 @@ fun AppNavigation() {
         }
         "rules" -> {
             RulesScreen(
+                onNavigate = { screen ->
+                    currentScreen = screen
+                }
+            )
+        }
+        "online-game" -> {
+            OnlineGameScreen(
                 onNavigate = { screen ->
                     currentScreen = screen
                 }
