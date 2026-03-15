@@ -14,6 +14,7 @@ import com.example.random_reversi.ui.screens.CustomizationScreen
 import com.example.random_reversi.ui.screens.FriendsScreen
 import com.example.random_reversi.ui.screens.RulesScreen
 import com.example.random_reversi.ui.screens.OnlineGameScreen
+import com.example.random_reversi.ui.screens.WaitingRoomScreen
 import com.example.random_reversi.ui.theme.ReversiTheme
 
 class MainActivity : ComponentActivity() {
@@ -33,47 +34,61 @@ fun AppNavigation() {
     // Estado para controlar la navegación simple
     var currentScreen by remember { mutableStateOf("home") }
 
-    when (currentScreen) {
-        "home" -> {
+    when {
+        currentScreen == "home" -> {
             HomeScreen(
                 onNavigate = { screen ->
                     currentScreen = screen
                 }
             )
         }
-        "menu" -> {
+        currentScreen == "menu" -> {
             MainScreen(
                 onNavigate = { screen ->
                     currentScreen = screen
                 }
             )
         }
-        "customization" -> {
+        currentScreen == "customization" -> {
             CustomizationScreen(
                 onNavigate = { screen ->
                     currentScreen = screen
                 }
             )
         }
-        "friends" -> {
+        currentScreen == "friends" -> {
             FriendsScreen(
                 onNavigate = { screen ->
                     currentScreen = screen
                 }
             )
         }
-        "rules" -> {
+        currentScreen == "rules" -> {
             RulesScreen(
                 onNavigate = { screen ->
                     currentScreen = screen
                 }
             )
         }
-        "online-game" -> {
+        currentScreen == "online-game" -> {
             OnlineGameScreen(
                 onNavigate = { screen ->
                     currentScreen = screen
                 }
+            )
+        }
+        currentScreen == "waiting-room" -> {
+            WaitingRoomScreen(
+                onNavigate = {screen ->
+                    currentScreen = screen
+                }
+            )
+        }
+        currentScreen.startsWith("waiting-room") -> {
+            val mode = if (currentScreen.contains("/")) currentScreen.substringAfter("/") else "1vs1"
+            WaitingRoomScreen(
+                gameMode = mode,
+                onNavigate = { currentScreen = it }
             )
         }
     }

@@ -58,7 +58,9 @@ private val MOCK_PUBLIC_GAMES = listOf(
 private val MOCK_HISTORY = listOf(
     GameHistory(1, "12 May", "1vs1", "Ganada", "42-22", "+25 RR"),
     GameHistory(2, "11 May", "1vs1vs1vs1", "Perdida", "10-30", "-15 RR"),
-    GameHistory(3, "10 May", "1vs1", "Empate", "32-32", "+0 RR")
+    GameHistory(3, "10 May", "1vs1", "Empate", "32-32", "+0 RR"),
+    GameHistory(4, "09 May", "1vs1", "Ganada", "50-14", "+30 RR"),
+    GameHistory(5, "08 May", "1vs1", "Perdida", "20-44", "-10 RR")
 )
 
 @Composable
@@ -119,19 +121,27 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
 
                     Column(horizontalAlignment = Alignment.End) {
                         Text("HISTORIAL", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMutedColor)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            MOCK_HISTORY.take(5).forEach {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .background(
-                                            when(it.result) {
-                                                "Ganada" -> Color(0xFF4ade80)
-                                                "Perdida" -> Color(0xFFf87171)
-                                                else -> Color.Gray
-                                            }, CircleShape
-                                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { // Espaciado entre letras
+                            MOCK_HISTORY.take(5).forEach { match ->
+                                // Asignamos la letra según el resultado
+                                val letter = when(match.result) {
+                                    "Ganada" -> "V"
+                                    "Perdida" -> "D"
+                                    else -> "E"
+                                }
+                                // Asignamos el color según el resultado
+                                val textColor = when(match.result) {
+                                    "Ganada" -> Color(0xFF4ADE80) // Verde
+                                    "Perdida" -> Color(0xFFF87171) // Rojo
+                                    else -> Color.Gray // Gris para empate
+                                }
+
+                                Text(
+                                    text = letter,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = textColor
                                 )
                             }
                         }
@@ -171,7 +181,7 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(publicGames) { game ->
-                    GameSessionCard(game, onJoin = { onNavigate("waiting-room") })
+                    GameSessionCard(game = game, onJoin = { onNavigate("waiting-room/${game.mode}") })
                 }
             }
 
@@ -198,7 +208,7 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
         onClose = { showCreateModal = false },
         onSelectMode = { mode ->
             showCreateModal = false
-            onNavigate("waiting-room")
+            onNavigate("waiting-room/$mode")
         }
     )
 }
