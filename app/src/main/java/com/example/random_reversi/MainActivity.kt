@@ -12,6 +12,7 @@ import com.example.random_reversi.ui.screens.HomeScreen
 import com.example.random_reversi.ui.screens.MainScreen
 import com.example.random_reversi.ui.screens.CustomizationScreen
 import com.example.random_reversi.ui.screens.FriendsScreen
+import com.example.random_reversi.ui.screens.GameBoard1v1Screen
 import com.example.random_reversi.ui.screens.RulesScreen
 import com.example.random_reversi.ui.screens.OnlineGameScreen
 import com.example.random_reversi.ui.screens.WaitingRoomScreen
@@ -88,6 +89,12 @@ fun AppNavigation() {
             val mode = if (currentScreen.contains("/")) currentScreen.substringAfter("/") else "1vs1"
             WaitingRoomScreen(
                 gameMode = mode,
+                onNavigate = { currentScreen = it }
+            )
+        }
+
+        currentScreen == "game-1vs1" -> {
+            GameBoard1v1Screen(
                 onNavigate = { currentScreen = it }
             )
         }
