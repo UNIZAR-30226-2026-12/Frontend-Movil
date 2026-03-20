@@ -13,6 +13,7 @@ import com.example.random_reversi.ui.screens.MainScreen
 import com.example.random_reversi.ui.screens.CustomizationScreen
 import com.example.random_reversi.ui.screens.FriendsScreen
 import com.example.random_reversi.ui.screens.GameBoard1v1Screen
+import com.example.random_reversi.ui.screens.GameBoard1v1v1v1Screen
 import com.example.random_reversi.ui.screens.RulesScreen
 import com.example.random_reversi.ui.screens.OnlineGameScreen
 import com.example.random_reversi.ui.screens.WaitingRoomScreen
@@ -92,9 +93,13 @@ fun AppNavigation() {
                 onNavigate = { currentScreen = it }
             )
         }
-
         currentScreen == "game-1vs1" -> {
             GameBoard1v1Screen(
+                onNavigate = { currentScreen = it }
+            )
+        }
+        currentScreen == "game-1vs1vs1vs1" -> {
+            GameBoard1v1v1v1Screen(
                 onNavigate = { currentScreen = it }
             )
         }
