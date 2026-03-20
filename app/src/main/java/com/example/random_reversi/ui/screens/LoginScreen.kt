@@ -26,7 +26,7 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
-
+    
     AppModal(
         isOpen = isOpen,
         onClose = onClose,
