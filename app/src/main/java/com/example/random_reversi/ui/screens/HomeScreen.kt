@@ -3,6 +3,7 @@ package com.example.random_reversi.ui.screens
 import android.annotation.SuppressLint
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,6 +81,7 @@ fun HomeScreen(
 ) {
     var showLoginModal by remember { mutableStateOf(false) }
     var showRegisterModal by remember { mutableStateOf(false) }
+    var showForgotPasswordModal by remember { mutableStateOf(false) }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -182,7 +184,19 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(52.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "¿Ha olvidado su contraseña?",
+                fontSize = 14.sp,
+                color = PrimaryColor,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .clickable { showForgotPasswordModal = true }
+                    .padding(vertical = 4.dp)
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
 
             // Footer
             Text(
@@ -217,5 +231,10 @@ fun HomeScreen(
             showRegisterModal = false
             showLoginModal = true
         }
+    )
+
+    ForgotPasswordScreen(
+        isOpen = showForgotPasswordModal,
+        onClose = { showForgotPasswordModal = false }
     )
 }

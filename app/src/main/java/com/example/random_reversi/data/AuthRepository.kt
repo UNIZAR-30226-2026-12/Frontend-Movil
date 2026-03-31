@@ -1,7 +1,9 @@
 package com.example.random_reversi.data
 
 import com.example.random_reversi.data.remote.ApiClient
+import com.example.random_reversi.data.remote.ForgotPasswordRequest
 import com.example.random_reversi.data.remote.RegisterRequest
+import com.example.random_reversi.data.remote.ResetPasswordRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -34,6 +36,38 @@ object AuthRepository {
                 AuthResult.Success()
             } else {
                 AuthResult.Error("Registro fallido (${response.code()})")
+            }
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Error de conexión")
+        }
+    }
+
+    suspend fun forgotPassword(email: String): AuthResult = withContext(Dispatchers.IO) {
+        try {
+            val response = ApiClient.authApiService.forgotPassword(
+                ForgotPasswordRequest(email = email)
+            )
+            if (response.isSuccessful) {
+                AuthResult.Success()
+            } else if (response.code() == 404) {
+                AuthResult.Error("No hay ninguna cuenta asociada a este correo electrónico")
+            } else {
+                AuthResult.Error("Error al enviar el correo (${response.code()})")
+            }
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Error de conexión")
+        }
+    }
+
+    suspend fun resetPassword(email: String, code: String, newPassword: String): AuthResult = withContext(Dispatchers.IO) {
+        try {
+            val response = ApiClient.authApiService.resetPassword(
+                ResetPasswordRequest(email = email, code = code, new_password = newPassword)
+            )
+            if (response.isSuccessful) {
+                AuthResult.Success()
+            } else {
+                AuthResult.Error("Código incorrecto o expirado")
             }
         } catch (e: Exception) {
             AuthResult.Error(e.message ?: "Error de conexión")
