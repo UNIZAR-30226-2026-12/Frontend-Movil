@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -26,7 +27,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.example.random_reversi.data.UserProfileStore
 import com.example.random_reversi.ui.theme.*
+import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.delay
 
 // --- Modelos de Datos ---
@@ -43,8 +47,13 @@ fun WaitingRoomScreen(
     gameMode: String = "1vs1",
     onNavigate: (String) -> Unit
 ) {
+    val profile by UserProfileStore.state.collectAsState()
     val maxPlayers = if (gameMode == "1vs1") 2 else 4
-    val localPlayerName = "Jugador"
+    val localPlayerName = profile.username.ifBlank { "Jugador" }
+
+    LaunchedEffect(Unit) {
+        UserProfileStore.refreshFromBackend()
+    }
 
     // Estado de la lista de jugadores
     var players by remember {
@@ -148,7 +157,11 @@ fun WaitingRoomScreen(
                     verticalAlignment = Alignment.Top
                 ) {
                     players.forEach { player ->
-                        PlayerSlot(player, isLocal = player.name == localPlayerName)
+                        PlayerSlot(
+                            player,
+                            isLocal = player.name == localPlayerName,
+                            localAvatarUrl = profile.avatarUrl
+                        )
                         if (players.size > 1 && player != players.last()) Spacer(modifier = Modifier.width(20.dp))
                     }
 
@@ -167,13 +180,13 @@ fun WaitingRoomScreen(
                 ) {
                     // Fila Superior
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        if (players.size > 0) PlayerSlot(players[0], isLocal = players[0].name == localPlayerName) else EmptySlot()
-                        if (players.size > 1) PlayerSlot(players[1], isLocal = players[1].name == localPlayerName) else EmptySlot()
+                        if (players.size > 0) PlayerSlot(players[0], isLocal = players[0].name == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
+                        if (players.size > 1) PlayerSlot(players[1], isLocal = players[1].name == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
                     }
                     // Fila Inferior
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        if (players.size > 2) PlayerSlot(players[2], isLocal = players[2].name == localPlayerName) else EmptySlot()
-                        if (players.size > 3) PlayerSlot(players[3], isLocal = players[3].name == localPlayerName) else EmptySlot()
+                        if (players.size > 2) PlayerSlot(players[2], isLocal = players[2].name == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
+                        if (players.size > 3) PlayerSlot(players[3], isLocal = players[3].name == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
                     }
                 }
             }
@@ -269,7 +282,7 @@ private fun FlippingChip3D() {
 }
 
 @Composable
-private fun PlayerSlot(player: Player, isLocal: Boolean) {
+private fun PlayerSlot(player: Player, isLocal: Boolean, localAvatarUrl: String?) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.width(80.dp)
@@ -287,7 +300,28 @@ private fun PlayerSlot(player: Player, isLocal: Boolean) {
                 color = SurfaceColor
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(player.name.first().toString(), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    val presetRes = if (isLocal) AvatarPresets.drawableForId(localAvatarUrl) else null
+                    when {
+                        presetRes != null -> {
+                            Image(
+                                painter = painterResource(id = presetRes),
+                                contentDescription = "Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                        isLocal && !localAvatarUrl.isNullOrBlank() -> {
+                            AsyncImage(
+                                model = localAvatarUrl,
+                                contentDescription = "Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                        else -> {
+                            Text(player.name.first().toString(), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
             // Badge de listo

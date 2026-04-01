@@ -24,9 +24,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.example.random_reversi.data.UserProfileStore
 import com.example.random_reversi.ui.components.AppModal
 import com.example.random_reversi.ui.components.GameModeModal
 import com.example.random_reversi.ui.theme.*
+import com.example.random_reversi.utils.AvatarPresets
 
 private data class FloatingChip(
     val emoji: String,
@@ -86,7 +89,12 @@ fun MainScreen(
     onNavigate: (screen: String) -> Unit
 ) {
     var showGameModeModal by remember { mutableStateOf(false) }
-    val userName = "Jugador" // TODO: Obtener del estado/base de datos
+    val profile by UserProfileStore.state.collectAsState()
+    val userName = profile.username.ifBlank { "Jugador" }
+
+    LaunchedEffect(Unit) {
+        UserProfileStore.refreshFromBackend()
+    }
 
     Box(
         modifier = Modifier
@@ -216,6 +224,7 @@ fun MainScreen(
         // Barra de usuario
         UserBar(
             userName = userName,
+            avatarUrl = profile.avatarUrl,
             onLogout = { onNavigate("home") },
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -304,6 +313,7 @@ private fun MenuCard(
 @Composable
 private fun UserBar(
     userName: String,
+    avatarUrl: String?,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -332,12 +342,33 @@ private fun UserBar(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = userName.first().uppercaseChar().toString(),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
+                    val presetRes = AvatarPresets.drawableForId(avatarUrl)
+                    when {
+                        presetRes != null -> {
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(id = presetRes),
+                                contentDescription = "Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                        !avatarUrl.isNullOrBlank() -> {
+                            AsyncImage(
+                                model = avatarUrl,
+                                contentDescription = "Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                        else -> {
+                            Text(
+                                text = userName.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
                 }
             }
 

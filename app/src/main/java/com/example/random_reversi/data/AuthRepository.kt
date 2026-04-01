@@ -18,6 +18,7 @@ object AuthRepository {
             val response = ApiClient.authApiService.login(username = email, password = password)
             if (response.isSuccessful) {
                 val token = response.body()?.access_token
+                SessionManager.setToken(token)
                 AuthResult.Success(token = token)
             } else {
                 AuthResult.Error("Login fallido (${response.code()})")
