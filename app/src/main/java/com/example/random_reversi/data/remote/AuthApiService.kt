@@ -59,6 +59,14 @@ data class CustomizationUpdateRequest(
     val preferred_board_color: String? = null
 )
 
+data class UserUpdateRequest(
+    val username: String? = null,
+    val email: String? = null,
+    val current_password: String? = null,
+    val new_password: String? = null,
+    val password: String? = null
+)
+
 data class AvatarUploadResponse(
     val avatar_url: String
 )
@@ -66,17 +74,45 @@ data class AvatarUploadResponse(
 // ── Stats Models ──
 
 data class UserStatsResponse(
+    val username: String? = null,
+    val elo: Int? = null,
+    val avatar_url: String? = null,
     val total_games: Int,
     val wins: Int,
     val losses: Int,
     val draws: Int,
     val winrate: Double,
-    val peak_elo: Int,
-    val win_streak: Int,
-    val winrate_black: Double,
-    val winrate_white: Double,
-    val nemesis: String?,
-    val victim: String?
+    val peak_elo: Int? = null,
+    val win_streak: Int? = null,
+    val winrate_black: Double? = null,
+    val winrate_white: Double? = null,
+    val nemesis_name: String? = null,
+    val nemesis_losses: Int? = null,
+    val victim_name: String? = null,
+    val victim_wins: Int? = null,
+    val stats_1v1: ModeStatsResponse? = null,
+    val stats_4p: ModeStatsResponse? = null
+)
+
+data class ModeStatsResponse(
+    val elo: Int? = null,
+    val peak_elo: Int? = null,
+    val total_games: Int = 0,
+    val wins: Int = 0,
+    val losses: Int = 0,
+    val draws: Int = 0,
+    val winrate: Double = 0.0,
+    val win_streak: Int = 0,
+    val winrate_black: Double? = null,
+    val winrate_white: Double? = null,
+    val first_place: Int? = null,
+    val second_place: Int? = null,
+    val third_place: Int? = null,
+    val fourth_place: Int? = null,
+    val nemesis_name: String? = null,
+    val nemesis_losses: Int? = null,
+    val victim_name: String? = null,
+    val victim_wins: Int? = null
 )
 
 data class HeadToHeadResponse(
@@ -236,6 +272,11 @@ interface AuthApiService {
 
     @GET("api/users/me")
     suspend fun getMe(): Response<UserMeResponse>
+
+    @PUT("api/users/me")
+    suspend fun updateMe(
+        @Body request: UserUpdateRequest
+    ): Response<UserMeResponse>
 
     @PUT("api/users/customization")
     suspend fun updateCustomization(

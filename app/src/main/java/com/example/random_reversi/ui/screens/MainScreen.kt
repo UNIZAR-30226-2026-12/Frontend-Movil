@@ -236,6 +236,7 @@ fun MainScreen(
         UserBar(
             userName = userName,
             avatarUrl = profile.avatarUrl,
+            onProfile = { onNavigate("profile") },
             onLogout = { onNavigate("home") },
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -325,6 +326,7 @@ private fun MenuCard(
 private fun UserBar(
     userName: String,
     avatarUrl: String?,
+    onProfile: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -341,55 +343,63 @@ private fun UserBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(
+            Row(
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape),
-                color = PrimaryColor,
-                shape = CircleShape
+                    .weight(1f, fill = false)
+                    .clickable(onClick = onProfile),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape),
+                    color = PrimaryColor,
+                    shape = CircleShape
                 ) {
-                    val presetRes = AvatarPresets.drawableForId(avatarUrl)
-                    when {
-                        presetRes != null -> {
-                            androidx.compose.foundation.Image(
-                                painter = androidx.compose.ui.res.painterResource(id = presetRes),
-                                contentDescription = "Avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        }
-                        !avatarUrl.isNullOrBlank() -> {
-                            AsyncImage(
-                                model = avatarUrl,
-                                contentDescription = "Avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        }
-                        else -> {
-                            Text(
-                                text = userName.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val presetRes = AvatarPresets.drawableForId(avatarUrl)
+                        when {
+                            presetRes != null -> {
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = presetRes),
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            }
+                            !avatarUrl.isNullOrBlank() -> {
+                                AsyncImage(
+                                    model = avatarUrl,
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            }
+                            else -> {
+                                Text(
+                                    text = userName.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            Text(
-                text = userName,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(end = 4.dp)
-            )
+                Text(
+                    text = userName,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(end = 4.dp)
+                )
+            }
 
             Box(
                 modifier = Modifier

@@ -15,6 +15,7 @@ import com.example.random_reversi.ui.screens.GameBoard1v1Screen
 import com.example.random_reversi.ui.screens.GameBoard1v1v1v1Screen
 import com.example.random_reversi.ui.screens.RulesScreen
 import com.example.random_reversi.ui.screens.OnlineGameScreen
+import com.example.random_reversi.ui.screens.ProfileScreen
 import com.example.random_reversi.ui.screens.WaitingRoomScreen
 import com.example.random_reversi.ui.screens.RankingScreen
 import com.example.random_reversi.ui.theme.ReversiTheme
@@ -60,6 +61,9 @@ fun AppNavigation() {
         }
         "ranking" -> {
             RankingScreen(onNavigate = { currentScreen = it })
+        }
+        "profile" -> {
+            ProfileScreen(onNavigate = { currentScreen = it })
         }
         "waiting-room" -> {
             val mode = parts.getOrElse(1) { "1vs1" }
