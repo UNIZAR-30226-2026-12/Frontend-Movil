@@ -1,10 +1,10 @@
 package com.example.random_reversi.data
 
 import com.example.random_reversi.data.remote.ApiClient
+import com.example.random_reversi.data.remote.ChatMessage
 import com.example.random_reversi.data.remote.FriendRequestBody
 import com.example.random_reversi.data.remote.SendMessageBody
 import com.example.random_reversi.data.remote.SocialPanelResponse
-import com.example.random_reversi.data.remote.ChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -15,12 +15,12 @@ object FriendsRepository {
             val response = ApiClient.authApiService.getSocialPanel()
             if (response.isSuccessful) {
                 response.body()?.let { UserResult.Success(it) }
-                    ?: UserResult.Error("Respuesta vacía")
+                    ?: UserResult.Error("Respuesta vacia")
             } else {
                 UserResult.Error("Error al cargar amigos (${response.code()})")
             }
         } catch (e: Exception) {
-            UserResult.Error(e.message ?: "Error de conexión")
+            UserResult.Error(e.message ?: "Error de conexion")
         }
     }
 
@@ -38,7 +38,7 @@ object FriendsRepository {
                 UserResult.Error(errorMsg)
             }
         } catch (e: Exception) {
-            UserResult.Error(e.message ?: "Error de conexión")
+            UserResult.Error(e.message ?: "Error de conexion")
         }
     }
 
@@ -51,7 +51,7 @@ object FriendsRepository {
                 UserResult.Error("Error al aceptar (${response.code()})")
             }
         } catch (e: Exception) {
-            UserResult.Error(e.message ?: "Error de conexión")
+            UserResult.Error(e.message ?: "Error de conexion")
         }
     }
 
@@ -64,7 +64,7 @@ object FriendsRepository {
                 UserResult.Error("Error al rechazar (${response.code()})")
             }
         } catch (e: Exception) {
-            UserResult.Error(e.message ?: "Error de conexión")
+            UserResult.Error(e.message ?: "Error de conexion")
         }
     }
 
@@ -77,7 +77,7 @@ object FriendsRepository {
                 UserResult.Error("Error al eliminar amigo (${response.code()})")
             }
         } catch (e: Exception) {
-            UserResult.Error(e.message ?: "Error de conexión")
+            UserResult.Error(e.message ?: "Error de conexion")
         }
     }
 
@@ -85,12 +85,12 @@ object FriendsRepository {
         try {
             val response = ApiClient.authApiService.getChatHistory(userId)
             if (response.isSuccessful) {
-                UserResult.Success(response.body() ?: emptyList())
+                UserResult.Success(response.body()?.messages ?: emptyList())
             } else {
                 UserResult.Error("Error al cargar chat (${response.code()})")
             }
         } catch (e: Exception) {
-            UserResult.Error(e.message ?: "Error de conexión")
+            UserResult.Error(e.message ?: "Error de conexion")
         }
     }
 
@@ -98,13 +98,13 @@ object FriendsRepository {
         try {
             val response = ApiClient.authApiService.sendChatMessage(userId, SendMessageBody(message))
             if (response.isSuccessful) {
-                response.body()?.let { UserResult.Success(it) }
-                    ?: UserResult.Error("Respuesta vacía")
+                response.body()?.message?.let { UserResult.Success(it) }
+                    ?: UserResult.Error("Respuesta vacia")
             } else {
                 UserResult.Error("Error al enviar mensaje (${response.code()})")
             }
         } catch (e: Exception) {
-            UserResult.Error(e.message ?: "Error de conexión")
+            UserResult.Error(e.message ?: "Error de conexion")
         }
     }
 
@@ -112,12 +112,12 @@ object FriendsRepository {
         try {
             val response = ApiClient.authApiService.markChatRead(userId)
             if (response.isSuccessful) {
-                UserResult.Success("Leído")
+                UserResult.Success("Leido")
             } else {
                 UserResult.Error("Error (${response.code()})")
             }
         } catch (e: Exception) {
-            UserResult.Error(e.message ?: "Error de conexión")
+            UserResult.Error(e.message ?: "Error de conexion")
         }
     }
 }

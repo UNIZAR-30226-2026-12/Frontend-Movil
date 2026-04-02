@@ -50,6 +50,7 @@ import com.example.random_reversi.data.GamesRepository
 import com.example.random_reversi.data.UserProfileStore
 import com.example.random_reversi.data.UserRepository
 import com.example.random_reversi.data.UserResult
+import com.example.random_reversi.data.remote.HeadToHeadResponse
 import com.example.random_reversi.data.remote.ModeStatsResponse
 import com.example.random_reversi.data.remote.UserStatsResponse
 import com.example.random_reversi.ui.theme.BgColor
@@ -74,11 +75,17 @@ private enum class StatsMode(val label: String) {
 }
 
 @Composable
-fun ProfileScreen(onNavigate: (String) -> Unit) {
+fun ProfileScreen(
+    onNavigate: (String) -> Unit,
+    userId: Int? = null,
+    targetUsername: String? = null
+) {
     val scope = rememberCoroutineScope()
     val profile by UserProfileStore.state.collectAsState()
+    val isOwnProfile = userId == null
 
     var stats by remember { mutableStateOf<UserStatsResponse?>(null) }
+    var h2h by remember { mutableStateOf<HeadToHeadResponse?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -100,18 +107,30 @@ fun ProfileScreen(onNavigate: (String) -> Unit) {
         scope.launch {
             loading = true
             error = null
-            when (val statsResult = GamesRepository.getMyStats()) {
-                is UserResult.Success -> stats = statsResult.data
-                is UserResult.Error -> error = statsResult.message
-            }
-            when (val meResult = UserRepository.getMe()) {
-                is UserResult.Success -> {
-                    username = meResult.data.username
-                    email = meResult.data.email
-                    originalUsername = meResult.data.username
-                    originalEmail = meResult.data.email
+            if (isOwnProfile) {
+                when (val statsResult = GamesRepository.getMyStats()) {
+                    is UserResult.Success -> stats = statsResult.data
+                    is UserResult.Error -> error = statsResult.message
                 }
-                is UserResult.Error -> if (error == null) error = meResult.message
+                when (val meResult = UserRepository.getMe()) {
+                    is UserResult.Success -> {
+                        username = meResult.data.username
+                        email = meResult.data.email
+                        originalUsername = meResult.data.username
+                        originalEmail = meResult.data.email
+                    }
+                    is UserResult.Error -> if (error == null) error = meResult.message
+                }
+            } else {
+                val targetUserId = userId ?: -1
+                when (val statsResult = GamesRepository.getUserStats(targetUserId)) {
+                    is UserResult.Success -> stats = statsResult.data
+                    is UserResult.Error -> error = statsResult.message
+                }
+                when (val h2hResult = GamesRepository.getHeadToHead(targetUserId)) {
+                    is UserResult.Success -> h2h = h2hResult.data
+                    is UserResult.Error -> h2h = null
+                }
             }
             loading = false
         }
@@ -189,7 +208,7 @@ fun ProfileScreen(onNavigate: (String) -> Unit) {
         StatsMode.FourPlayers -> stats?.stats_4p ?: ModeStatsResponse()
     }
 
-    val name = stats?.username ?: profile.username
+    val name = stats?.username ?: targetUsername ?: profile.username
     val elo = stats?.elo ?: 1000
     val avatar = stats?.avatar_url ?: profile.avatarUrl
 
@@ -202,9 +221,11 @@ fun ProfileScreen(onNavigate: (String) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(8.dp))
-        Header(name, elo, avatar)
+        Header(name, elo, avatar, isOwnProfile)
         Spacer(modifier = Modifier.height(10.dp))
-        SegmentedTabs(activeTab, { activeTab = it }, Tab.values().toList())
+        if (isOwnProfile) {
+            SegmentedTabs(activeTab, { activeTab = it }, Tab.values().toList())
+        }
         Spacer(modifier = Modifier.height(10.dp))
 
         when {
@@ -218,10 +239,18 @@ fun ProfileScreen(onNavigate: (String) -> Unit) {
                 WinRateCard(modeStats, activeMode == StatsMode.FourPlayers)
                 Spacer(modifier = Modifier.height(10.dp))
                 StatsCard(modeStats, activeMode == StatsMode.FourPlayers)
-                Spacer(modifier = Modifier.height(10.dp))
-                Highlights(modeStats, elo, activeMode == StatsMode.FourPlayers)
-                Spacer(modifier = Modifier.height(10.dp))
-                Rivals(modeStats, activeMode == StatsMode.FourPlayers)
+
+                if (isOwnProfile) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Highlights(modeStats, elo, activeMode == StatsMode.FourPlayers)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Rivals(modeStats, activeMode == StatsMode.FourPlayers)
+                }
+
+                if (!isOwnProfile) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HeadToHeadCard(h2h = h2h, isFourPlayer = activeMode == StatsMode.FourPlayers)
+                }
             }
             else -> SettingsCard(
                 username = username,
@@ -243,17 +272,17 @@ fun ProfileScreen(onNavigate: (String) -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
         Button(
-            onClick = { onNavigate("menu") },
+            onClick = { onNavigate(if (isOwnProfile) "menu" else "friends") },
             modifier = Modifier.fillMaxWidth(0.72f).height(48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
             shape = RoundedCornerShape(12.dp)
-        ) { Text("Volver al menu", color = Color.White, fontWeight = FontWeight.Bold) }
+        ) { Text(if (isOwnProfile) "Volver al menu" else "Volver a amigos", color = Color.White, fontWeight = FontWeight.Bold) }
         Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
 @Composable
-private fun Header(username: String, elo: Int, avatarUrl: String?) {
+private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile: Boolean) {
     Surface(modifier = Modifier.fillMaxWidth(), color = SurfaceColor, shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, BorderColor)) {
         Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(modifier = Modifier.size(62.dp).clip(CircleShape), shape = CircleShape, border = BorderStroke(1.dp, BorderColor), color = SurfaceLightColor) {
@@ -267,7 +296,7 @@ private fun Header(username: String, elo: Int, avatarUrl: String?) {
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(username, color = TextColor, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("Perfil y estadisticas", color = TextMutedColor, fontSize = 12.sp)
+                Text(if (isOwnProfile) "Perfil y estadisticas" else "Estadisticas del jugador", color = TextMutedColor, fontSize = 12.sp)
             }
             Surface(color = PrimaryColor.copy(alpha = 0.18f), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, PrimaryColor.copy(alpha = 0.35f))) {
                 Text("$elo RR", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color(0xFFFBBF24), fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -362,6 +391,32 @@ private fun Highlights(
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         MiniCard("😈", "Nemesis", modeStats.nemesis_name ?: "-", if (n > 0) "${if (isFourPlayer) "Te ha superado" else "Te ha ganado"} $n veces" else "Sin rival destacado", Modifier.weight(1f))
         MiniCard("😇", "Victima", modeStats.victim_name ?: "-", if (v > 0) "${if (isFourPlayer) "Lo has superado" else "Has ganado"} $v veces" else "Sin victima destacada", Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun HeadToHeadCard(h2h: HeadToHeadResponse?, isFourPlayer: Boolean) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = SurfaceColor,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, BorderColor)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Cara a cara", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            if (h2h == null) {
+                Text("Sin datos disponibles.", color = TextMutedColor, fontSize = 12.sp)
+            } else if (isFourPlayer) {
+                StatRow("Partidas juntos (4P)", (h2h.total_matches_4p ?: 0).toString())
+                StatRow("Tus 1º puestos", (h2h.first_places_4p ?: 0).toString(), Color(0xFF4ADE80))
+                StatRow("Resto de puestos", (h2h.other_places_4p ?: 0).toString(), Color(0xFFF87171))
+            } else {
+                StatRow("Partidas jugadas", h2h.total_matches.toString())
+                StatRow("Tus victorias", h2h.wins.toString(), Color(0xFF4ADE80))
+                StatRow("Tus derrotas", h2h.losses.toString(), Color(0xFFF87171))
+                StatRow("Empates", h2h.draws.toString(), Color(0xFFFBBF24))
+            }
+        }
     }
 }
 

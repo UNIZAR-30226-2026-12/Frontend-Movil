@@ -3,6 +3,7 @@ package com.example.random_reversi.data.remote
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
+import com.google.gson.annotations.SerializedName
 
 // ── Auth Models ──
 
@@ -158,15 +159,22 @@ data class FriendInfo(
 )
 
 data class GameInviteInfo(
-    val game_id: Int,
-    val creator: String,
-    val mode: String
+    @SerializedName(value = "lobby_id", alternate = ["game_id"])
+    val lobby_id: Int,
+    val id: Int?,
+    val name: String?,
+    val avatar_url: String?,
+    val rr: Int?,
+    @SerializedName(value = "gameMode", alternate = ["mode", "gamemode", "game_mode"])
+    val gameMode: String?
 )
 
 data class SocialPanelResponse(
     val friends: List<FriendInfo>,
-    val pending_requests: List<FriendInfo>,
-    val game_invitations: List<GameInviteInfo>
+    @SerializedName(value = "requests", alternate = ["pending_requests"])
+    val requests: List<FriendInfo>,
+    @SerializedName(value = "gameRequests", alternate = ["game_invitations"])
+    val gameRequests: List<GameInviteInfo>
 )
 
 data class FriendRequestBody(
@@ -180,12 +188,21 @@ data class ChatMessage(
     val sender_id: Int,
     val receiver_id: Int,
     val message: String,
+    @SerializedName(value = "created_at", alternate = ["timestamp"])
     val timestamp: String,
     val is_read: Boolean
 )
 
 data class SendMessageBody(
     val message: String
+)
+
+data class ChatHistoryResponse(
+    val messages: List<ChatMessage>
+)
+
+data class ChatMessageEnvelope(
+    val message: ChatMessage
 )
 
 // ── Lobby / Games Models ──
@@ -220,6 +237,12 @@ data class InviteFriendsResponse(
     val invites_sent: Int
 )
 
+data class AcceptInviteResponse(
+    val message: String? = null,
+    val game_id: Int? = null,
+    val lobby_id: Int? = null
+)
+
 data class LobbyPlayerInfo(
     val id: Int,
     val username: String,
@@ -233,6 +256,10 @@ data class LobbyStateResponse(
     val status: String,
     val mode: String,
     val players: List<LobbyPlayerInfo>
+)
+
+data class ReadyRequest(
+    val ready: Boolean
 )
 
 // ── Ranking Models ──
@@ -331,13 +358,13 @@ interface AuthApiService {
     // ── Friend Chat ──
 
     @GET("api/friends/{user_id}/chat")
-    suspend fun getChatHistory(@Path("user_id") userId: Int): Response<List<ChatMessage>>
+    suspend fun getChatHistory(@Path("user_id") userId: Int): Response<ChatHistoryResponse>
 
     @POST("api/friends/{user_id}/chat")
     suspend fun sendChatMessage(
         @Path("user_id") userId: Int,
         @Body body: SendMessageBody
-    ): Response<ChatMessage>
+    ): Response<ChatMessageEnvelope>
 
     @POST("api/friends/{user_id}/chat/read")
     suspend fun markChatRead(@Path("user_id") userId: Int): Response<MessageResponse>
@@ -357,7 +384,7 @@ interface AuthApiService {
     suspend fun inviteFriends(@Body request: InviteFriendsRequest): Response<InviteFriendsResponse>
 
     @POST("api/games/{game_id}/accept")
-    suspend fun acceptGameInvite(@Path("game_id") gameId: Int): Response<MessageResponse>
+    suspend fun acceptGameInvite(@Path("game_id") gameId: Int): Response<AcceptInviteResponse>
 
     @POST("api/games/{game_id}/reject")
     suspend fun rejectGameInvite(@Path("game_id") gameId: Int): Response<MessageResponse>
@@ -366,7 +393,10 @@ interface AuthApiService {
     suspend fun getLobbyState(@Path("game_id") gameId: Int): Response<LobbyStateResponse>
 
     @POST("api/games/{game_id}/ready")
-    suspend fun setReady(@Path("game_id") gameId: Int): Response<MessageResponse>
+    suspend fun setReady(
+        @Path("game_id") gameId: Int,
+        @Body request: ReadyRequest
+    ): Response<MessageResponse>
 
     @POST("api/games/{game_id}/leave")
     suspend fun leaveLobby(@Path("game_id") gameId: Int): Response<MessageResponse>

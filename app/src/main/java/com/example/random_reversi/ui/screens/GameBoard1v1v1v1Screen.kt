@@ -32,6 +32,7 @@ private val MutedBlue = Color(0xFF0D47A1)
 @Composable
 fun GameBoard1v1v1v1Screen(
     gameId: Int = -1,
+    returnTo: String = "online-game",
     onNavigate: (String) -> Unit
 ) {
     val ws = remember { if (gameId > 0) GameWebSocket(gameId) else null }
@@ -312,7 +313,7 @@ fun GameBoard1v1v1v1Screen(
                         onClick = {
                             ws?.sendSurrender()
                             showSurrenderConfirm = false
-                            onNavigate("online-game")
+                            onNavigate(returnTo)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF87171))
                     ) { Text("Rendirme") }
@@ -349,7 +350,7 @@ fun GameBoard1v1v1v1Screen(
                 },
                 confirmButton = {
                     Button(
-                        onClick = { ws?.disconnect(); onNavigate("online-game") },
+                        onClick = { ws?.disconnect(); onNavigate(returnTo) },
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                     ) { Text("Volver al Menú") }
                 }
@@ -422,3 +423,4 @@ private fun ScoreChip4P(label: String, score: Int, pieceColor: Color, isActive: 
         }
     }
 }
+

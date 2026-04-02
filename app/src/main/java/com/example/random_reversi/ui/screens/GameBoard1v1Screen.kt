@@ -29,6 +29,7 @@ private val BOARD_SIZE = 8
 @Composable
 fun GameBoard1v1Screen(
     gameId: Int = -1,
+    returnTo: String = "online-game",
     onNavigate: (String) -> Unit
 ) {
     val ws = remember { if (gameId > 0) GameWebSocket(gameId) else null }
@@ -289,7 +290,7 @@ fun GameBoard1v1Screen(
                         onClick = {
                             ws?.sendSurrender()
                             showSurrenderConfirm = false
-                            onNavigate("online-game")
+                            onNavigate(returnTo)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF87171))
                     ) {
@@ -315,7 +316,7 @@ fun GameBoard1v1Screen(
                 isDraw = isDraw,
                 onExit = {
                     ws?.disconnect()
-                    onNavigate("online-game")
+                    onNavigate(returnTo)
                 }
             )
         }

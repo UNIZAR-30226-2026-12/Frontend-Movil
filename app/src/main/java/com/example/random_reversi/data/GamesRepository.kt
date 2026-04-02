@@ -8,6 +8,8 @@ import com.example.random_reversi.data.remote.InviteFriendsRequest
 import com.example.random_reversi.data.remote.InviteFriendsResponse
 import com.example.random_reversi.data.remote.LobbyStateResponse
 import com.example.random_reversi.data.remote.PublicLobby
+import com.example.random_reversi.data.remote.ReadyRequest
+import com.example.random_reversi.data.remote.HeadToHeadResponse
 import com.example.random_reversi.data.remote.UserStatsResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,16 +72,24 @@ object GamesRepository {
         }
     }
 
-    suspend fun acceptGameInvite(gameId: Int): UserResult<String> = withContext(Dispatchers.IO) {
+    suspend fun acceptGameInvite(gameId: Int): UserResult<Int> = withContext(Dispatchers.IO) {
         try {
             val response = ApiClient.authApiService.acceptGameInvite(gameId)
             if (response.isSuccessful) {
-                UserResult.Success("Invitación aceptada")
+                val body = response.body()
+                val candidates = listOfNotNull(body?.game_id, body?.lobby_id, gameId).distinct()
+                for (candidate in candidates) {
+                    val stateCheck = ApiClient.authApiService.getLobbyState(candidate)
+                    if (stateCheck.isSuccessful) {
+                        return@withContext UserResult.Success(candidate)
+                    }
+                }
+                UserResult.Success(candidates.firstOrNull() ?: gameId)
             } else {
-                UserResult.Error("Error al aceptar invitación (${response.code()})")
+                UserResult.Error("Error al aceptar invitacion (${response.code()})")
             }
         } catch (e: Exception) {
-            UserResult.Error(e.message ?: "Error de conexión")
+            UserResult.Error(e.message ?: "Error de conexion")
         }
     }
 
@@ -110,9 +120,9 @@ object GamesRepository {
         }
     }
 
-    suspend fun setReady(gameId: Int): UserResult<String> = withContext(Dispatchers.IO) {
+    suspend fun setReady(gameId: Int, ready: Boolean): UserResult<String> = withContext(Dispatchers.IO) {
         try {
-            val response = ApiClient.authApiService.setReady(gameId)
+            val response = ApiClient.authApiService.setReady(gameId, ReadyRequest(ready))
             if (response.isSuccessful) {
                 UserResult.Success("Listo")
             } else {
@@ -152,6 +162,34 @@ object GamesRepository {
         }
     }
 
+    suspend fun getUserStats(userId: Int): UserResult<UserStatsResponse> = withContext(Dispatchers.IO) {
+        try {
+            val response = ApiClient.authApiService.getUserStats(userId)
+            if (response.isSuccessful) {
+                response.body()?.let { UserResult.Success(it) }
+                    ?: UserResult.Error("Respuesta vacía")
+            } else {
+                UserResult.Error("Error al cargar estadísticas (${response.code()})")
+            }
+        } catch (e: Exception) {
+            UserResult.Error(e.message ?: "Error de conexión")
+        }
+    }
+
+    suspend fun getHeadToHead(userId: Int): UserResult<HeadToHeadResponse> = withContext(Dispatchers.IO) {
+        try {
+            val response = ApiClient.authApiService.getHeadToHead(userId)
+            if (response.isSuccessful) {
+                response.body()?.let { UserResult.Success(it) }
+                    ?: UserResult.Error("Respuesta vacía")
+            } else {
+                UserResult.Error("Error al cargar h2h (${response.code()})")
+            }
+        } catch (e: Exception) {
+            UserResult.Error(e.message ?: "Error de conexión")
+        }
+    }
+
     suspend fun getMyHistory(): UserResult<List<HistoryEntry>> = withContext(Dispatchers.IO) {
         try {
             val response = ApiClient.authApiService.getMyHistory()
@@ -164,4 +202,17 @@ object GamesRepository {
             UserResult.Error(e.message ?: "Error de conexión")
         }
     }
+    suspend fun getUserHistory(userId: Int): UserResult<List<HistoryEntry>> = withContext(Dispatchers.IO) {
+        try {
+            val response = ApiClient.authApiService.getUserHistory(userId)
+            if (response.isSuccessful) {
+                UserResult.Success(response.body() ?: emptyList())
+            } else {
+                UserResult.Error("Error al cargar historial (${response.code()})")
+            }
+        } catch (e: Exception) {
+            UserResult.Error(e.message ?: "Error de conexion")
+        }
+    }
 }
+

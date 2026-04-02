@@ -50,6 +50,9 @@ class GameWebSocket(
     private val _roomPlayers = MutableStateFlow<List<JsonObject>>(emptyList())
     val roomPlayers: StateFlow<List<JsonObject>> = _roomPlayers.asStateFlow()
 
+    private val _roomStatus = MutableStateFlow("waiting")
+    val roomStatus: StateFlow<String> = _roomStatus.asStateFlow()
+
     fun connect() {
         val token = SessionManager.getToken() ?: return
 
@@ -157,6 +160,9 @@ class GameWebSocket(
 
             "room_sync" -> {
                 msg.payload?.let { payload ->
+                    payload.get("status")?.asString?.let { status ->
+                        _roomStatus.value = status
+                    }
                     if (payload.has("players")) {
                         val playersArray = payload.getAsJsonArray("players")
                         _roomPlayers.value = playersArray.map { it.asJsonObject }

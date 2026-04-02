@@ -198,7 +198,7 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                                 scope.launch {
                                     when (val joinResult = GamesRepository.joinLobby(game.game_id)) {
                                         is UserResult.Success -> {
-                                            onNavigate("waiting-room/${game.mode}/${game.game_id}")
+                                            onNavigate("waiting-room/${game.mode}/${game.game_id}/online-game")
                                         }
                                         is UserResult.Error -> {
                                             errorMsg = joinResult.message
@@ -253,7 +253,7 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
             scope.launch {
                 when (val result = GamesRepository.createLobby(mode)) {
                     is UserResult.Success -> {
-                        onNavigate("waiting-room/$mode/${result.data.game_id}")
+                        onNavigate("waiting-room/$mode/${result.data.game_id}/online-game")
                     }
                     is UserResult.Error -> {
                         errorMsg = result.message
