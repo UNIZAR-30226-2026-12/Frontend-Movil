@@ -7,7 +7,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-// Importa las pantallas
 import com.example.random_reversi.ui.screens.HomeScreen
 import com.example.random_reversi.ui.screens.MainScreen
 import com.example.random_reversi.ui.screens.CustomizationScreen
@@ -17,6 +16,7 @@ import com.example.random_reversi.ui.screens.GameBoard1v1v1v1Screen
 import com.example.random_reversi.ui.screens.RulesScreen
 import com.example.random_reversi.ui.screens.OnlineGameScreen
 import com.example.random_reversi.ui.screens.WaitingRoomScreen
+import com.example.random_reversi.ui.screens.RankingScreen
 import com.example.random_reversi.ui.theme.ReversiTheme
 
 class MainActivity : ComponentActivity() {
@@ -33,73 +33,54 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation() {
-    // Estado para controlar la navegación simple
     var currentScreen by remember { mutableStateOf("home") }
 
-    when {
-        currentScreen == "home" -> {
-            HomeScreen(
-                onNavigate = { screen ->
-                    currentScreen = screen
-                }
-            )
+    // Parsear la ruta: "waiting-room/1vs1/42" -> route="waiting-room", parts=["1vs1","42"]
+    val parts = currentScreen.split("/")
+    val route = parts[0]
+
+    when (route) {
+        "home" -> {
+            HomeScreen(onNavigate = { currentScreen = it })
         }
-        currentScreen == "menu" -> {
-            MainScreen(
-                onNavigate = { screen ->
-                    currentScreen = screen
-                }
-            )
+        "menu" -> {
+            MainScreen(onNavigate = { currentScreen = it })
         }
-        currentScreen == "customization" -> {
-            CustomizationScreen(
-                onNavigate = { screen ->
-                    currentScreen = screen
-                }
-            )
+        "customization" -> {
+            CustomizationScreen(onNavigate = { currentScreen = it })
         }
-        currentScreen == "friends" -> {
-            FriendsScreen(
-                onNavigate = { screen ->
-                    currentScreen = screen
-                }
-            )
+        "friends" -> {
+            FriendsScreen(onNavigate = { currentScreen = it })
         }
-        currentScreen == "rules" -> {
-            RulesScreen(
-                onNavigate = { screen ->
-                    currentScreen = screen
-                }
-            )
+        "rules" -> {
+            RulesScreen(onNavigate = { currentScreen = it })
         }
-        currentScreen == "online-game" -> {
-            OnlineGameScreen(
-                onNavigate = { screen ->
-                    currentScreen = screen
-                }
-            )
+        "online-game" -> {
+            OnlineGameScreen(onNavigate = { currentScreen = it })
         }
-        currentScreen == "waiting-room" -> {
-            WaitingRoomScreen(
-                onNavigate = {screen ->
-                    currentScreen = screen
-                }
-            )
+        "ranking" -> {
+            RankingScreen(onNavigate = { currentScreen = it })
         }
-        currentScreen.startsWith("waiting-room") -> {
-            val mode = if (currentScreen.contains("/")) currentScreen.substringAfter("/") else "1vs1"
+        "waiting-room" -> {
+            val mode = parts.getOrElse(1) { "1vs1" }
+            val gameId = parts.getOrElse(2) { "-1" }.toIntOrNull() ?: -1
             WaitingRoomScreen(
                 gameMode = mode,
+                gameId = gameId,
                 onNavigate = { currentScreen = it }
             )
         }
-        currentScreen == "game-1vs1" -> {
+        "game-1vs1" -> {
+            val gameId = parts.getOrElse(1) { "-1" }.toIntOrNull() ?: -1
             GameBoard1v1Screen(
+                gameId = gameId,
                 onNavigate = { currentScreen = it }
             )
         }
-        currentScreen == "game-1vs1vs1vs1" -> {
+        "game-1vs1vs1vs1" -> {
+            val gameId = parts.getOrElse(1) { "-1" }.toIntOrNull() ?: -1
             GameBoard1v1v1v1Screen(
+                gameId = gameId,
                 onNavigate = { currentScreen = it }
             )
         }

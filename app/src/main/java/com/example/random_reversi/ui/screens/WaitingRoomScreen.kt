@@ -24,64 +24,66 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.random_reversi.data.GamesRepository
 import com.example.random_reversi.data.UserProfileStore
+import com.example.random_reversi.data.UserResult
+import com.example.random_reversi.data.remote.LobbyPlayerInfo
 import com.example.random_reversi.ui.theme.*
 import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.delay
-
-// --- Modelos de Datos ---
-private data class Player(
-    val id: Int,
-    val name: String,
-    val rr: Int,
-    var isReady: Boolean = false,
-    val streak: List<String> = listOf("V", "D", "V", "V", "D") // Mock de racha
-)
+import kotlinx.coroutines.launch
 
 @Composable
 fun WaitingRoomScreen(
     gameMode: String = "1vs1",
+    gameId: Int = -1,
     onNavigate: (String) -> Unit
 ) {
     val profile by UserProfileStore.state.collectAsState()
     val maxPlayers = if (gameMode == "1vs1") 2 else 4
     val localPlayerName = profile.username.ifBlank { "Jugador" }
 
+    var players by remember { mutableStateOf<List<LobbyPlayerInfo>>(emptyList()) }
+    var lobbyStatus by remember { mutableStateOf("waiting") }
+    var isLocalReady by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(Unit) {
         UserProfileStore.refreshFromBackend()
     }
 
-    // Estado de la lista de jugadores
-    var players by remember {
-        mutableStateOf(listOf(Player(1, localPlayerName, 1500, false)))
-    }
-
     val isFull = players.size == maxPlayers
-    val allReady = isFull && players.all { it.isReady }
+    val allReady = isFull && players.all { it.is_ready }
 
-    // Simulación: Oponentes se unen a los 3 segundos
-    LaunchedEffect(Unit) {
-        delay(3000)
-        if (gameMode == "1vs1") {
-            players = players + Player(2, "CyberNinja", 1420, true)
-        } else {
-            players = players + listOf(
-                Player(2, "CyberNinja", 1420, true),
-                Player(3, "ReversiMaster", 1850, true),
-                Player(4, "Gamer_Pro", 1600, true)
-            )
+    // Polling del estado del lobby cada 2 segundos
+    LaunchedEffect(gameId) {
+        if (gameId > 0) {
+            while (true) {
+                when (val result = GamesRepository.getLobbyState(gameId)) {
+                    is UserResult.Success -> {
+                        players = result.data.players
+                        lobbyStatus = result.data.status
+                        // Sincronizar el estado ready local
+                        val me = result.data.players.find { it.username == localPlayerName }
+                        if (me != null) isLocalReady = me.is_ready
+                    }
+                    is UserResult.Error -> {
+                        errorMsg = result.message
+                    }
+                }
+                delay(2000)
+            }
         }
     }
 
-    // Navegación automática cuando todos están listos
-    LaunchedEffect(allReady) {
-        if (allReady) {
-            delay(1500)
-            onNavigate("game-$gameMode")
+    // Navegar al juego cuando el lobby pasa a "playing"
+    LaunchedEffect(lobbyStatus) {
+        if (lobbyStatus == "playing") {
+            delay(1000)
+            onNavigate("game-$gameMode/$gameId")
         }
     }
 
@@ -125,7 +127,6 @@ fun WaitingRoomScreen(
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Animación 3D de la ficha central
             FlippingChip3D()
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -138,7 +139,12 @@ fun WaitingRoomScreen(
             )
 
             Text(
-                text = if (allReady) "INICIANDO PARTIDA..." else if (isFull) "SALA LLENA" else "ESPERANDO JUGADORES...",
+                text = when {
+                    lobbyStatus == "playing" -> "INICIANDO PARTIDA..."
+                    allReady -> "INICIANDO PARTIDA..."
+                    isFull -> "SALA LLENA - MARCA LISTO"
+                    else -> "ESPERANDO JUGADORES..."
+                },
                 color = TextMutedColor,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
@@ -146,11 +152,16 @@ fun WaitingRoomScreen(
                 modifier = Modifier.alpha(alpha)
             )
 
+            // Error message
+            errorMsg?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(it, color = Color(0xFFF87171), fontSize = 12.sp)
+            }
+
             Spacer(modifier = Modifier.height(40.dp))
 
-            // --- CAMBIO APLICADO AQUÍ (Lógica Condicional de Diseño) ---
+            // Players layout
             if (gameMode == "1vs1") {
-                // Diseño de Fila Clásica para 2 Jugadores
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
@@ -159,34 +170,29 @@ fun WaitingRoomScreen(
                     players.forEach { player ->
                         PlayerSlot(
                             player,
-                            isLocal = player.name == localPlayerName,
+                            isLocal = player.username == localPlayerName,
                             localAvatarUrl = profile.avatarUrl
                         )
                         if (players.size > 1 && player != players.last()) Spacer(modifier = Modifier.width(20.dp))
                     }
-
-                    // Slots vacíos
                     repeat(maxPlayers - players.size) {
-                        Spacer(modifier = Modifier.width(20.dp))
+                        if (players.isNotEmpty()) Spacer(modifier = Modifier.width(20.dp))
                         EmptySlot()
                     }
                 }
             } else {
-                // Diseño de Cuadrícula 2x2 para 4 Jugadores
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    // Fila Superior
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        if (players.size > 0) PlayerSlot(players[0], isLocal = players[0].name == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
-                        if (players.size > 1) PlayerSlot(players[1], isLocal = players[1].name == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
+                        if (players.size > 0) PlayerSlot(players[0], isLocal = players[0].username == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
+                        if (players.size > 1) PlayerSlot(players[1], isLocal = players[1].username == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
                     }
-                    // Fila Inferior
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        if (players.size > 2) PlayerSlot(players[2], isLocal = players[2].name == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
-                        if (players.size > 3) PlayerSlot(players[3], isLocal = players[3].name == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
+                        if (players.size > 2) PlayerSlot(players[2], isLocal = players[2].username == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
+                        if (players.size > 3) PlayerSlot(players[3], isLocal = players[3].username == localPlayerName, localAvatarUrl = profile.avatarUrl) else EmptySlot()
                     }
                 }
             }
@@ -198,14 +204,20 @@ fun WaitingRoomScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Botón Abandonar
-                val backDestination = when (gameMode) {
-                    "1vs1", "1vs1vs1vs1" -> "online-game" // Si es online, vuelve a la lista online
-                    else -> "menu"                        // Si es IA u otro, vuelve al menú principal
-                }
+                val scope = rememberCoroutineScope()
 
+                // Abandonar
                 Button(
-                    onClick = { onNavigate(backDestination) },
+                    onClick = {
+                        if (gameId > 0) {
+                            scope.launch {
+                                GamesRepository.leaveLobby(gameId)
+                                onNavigate("online-game")
+                            }
+                        } else {
+                            onNavigate("online-game")
+                        }
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp),
@@ -216,15 +228,19 @@ fun WaitingRoomScreen(
                     Text("Abandonar", color = Color(0xFFF87171), fontWeight = FontWeight.Bold)
                 }
 
-                // Botón Listo
-                val isLocalReady = players.find { it.name == localPlayerName }?.isReady ?: false
+                // Listo
                 Button(
                     onClick = {
-                        players = players.map {
-                            if (it.name == localPlayerName) it.copy(isReady = !it.isReady) else it
+                        if (gameId > 0) {
+                            scope.launch {
+                                when (GamesRepository.setReady(gameId)) {
+                                    is UserResult.Success -> isLocalReady = !isLocalReady
+                                    is UserResult.Error -> {}
+                                }
+                            }
                         }
                     },
-                    enabled = isFull,
+                    enabled = isFull && gameId > 0,
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp),
@@ -262,7 +278,6 @@ private fun FlippingChip3D() {
             },
         contentAlignment = Alignment.Center
     ) {
-        // Cara Blanca (se muestra de 90 a 270 grados)
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -270,7 +285,6 @@ private fun FlippingChip3D() {
                 .background(Color.White, CircleShape)
                 .border(4.dp, Color.Gray.copy(alpha = 0.2f), CircleShape)
         )
-        // Cara Negra (se muestra el resto del tiempo)
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -282,18 +296,17 @@ private fun FlippingChip3D() {
 }
 
 @Composable
-private fun PlayerSlot(player: Player, isLocal: Boolean, localAvatarUrl: String?) {
+private fun PlayerSlot(player: LobbyPlayerInfo, isLocal: Boolean, localAvatarUrl: String?) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.width(80.dp)
     ) {
         Box {
-            // Avatar
             Surface(
                 modifier = Modifier
                     .size(70.dp)
                     .then(
-                        if (player.isReady) Modifier.border(3.dp, Color(0xFF4ADE80), CircleShape)
+                        if (player.is_ready) Modifier.border(3.dp, Color(0xFF4ADE80), CircleShape)
                         else Modifier.border(2.dp, PrimaryColor.copy(alpha = 0.5f), CircleShape)
                     ),
                 shape = CircleShape,
@@ -318,14 +331,31 @@ private fun PlayerSlot(player: Player, isLocal: Boolean, localAvatarUrl: String?
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
                             )
                         }
+                        !player.avatar_url.isNullOrBlank() -> {
+                            val otherPreset = AvatarPresets.drawableForId(player.avatar_url)
+                            if (otherPreset != null) {
+                                Image(
+                                    painter = painterResource(id = otherPreset),
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            } else {
+                                AsyncImage(
+                                    model = player.avatar_url,
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            }
+                        }
                         else -> {
-                            Text(player.name.first().toString(), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Text(player.username.first().toString(), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
-            // Badge de listo
-            if (player.isReady) {
+            if (player.is_ready) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -341,24 +371,13 @@ private fun PlayerSlot(player: Player, isLocal: Boolean, localAvatarUrl: String?
 
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = if (isLocal) "Tú" else player.name,
-            color = if (player.isReady) Color.White else TextMutedColor,
+            text = if (isLocal) "Tú" else player.username,
+            color = if (player.is_ready) Color.White else TextMutedColor,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        // Racha (V/D)
-        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            player.streak.forEach {
-                Text(
-                    it,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Black,
-                    color = if (it == "V") Color(0xFF4ADE80) else Color(0xFFF87171)
-                )
-            }
-        }
         Text("${player.rr} RR", color = Color(0xFFFBBF24), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
     }
 }

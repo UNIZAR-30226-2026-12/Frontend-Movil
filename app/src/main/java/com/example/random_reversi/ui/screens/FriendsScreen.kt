@@ -22,66 +22,32 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.random_reversi.data.FriendsRepository
+import com.example.random_reversi.data.GamesRepository
+import com.example.random_reversi.data.UserResult
+import com.example.random_reversi.data.remote.FriendInfo
+import com.example.random_reversi.data.remote.GameInviteInfo
 import com.example.random_reversi.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// --- Modelos de Datos ---
-private data class Friend(
-    val id: Int,
-    val name: String,
-    val status: String, // "en linea", "offline", "jugando"
-    val rr: Int,
-    val gameMode: String? = null,
-    val playersCount: String? = null
-)
-
 private data class ToastData(
     val message: String,
-    val type: String, // "success", "info", "error"
+    val type: String,
     val visible: Boolean = false
 )
 
-// --- Datos Mock ---
-private val MOCK_FRIENDS = listOf(
-    Friend(1, "CyberNinja", "en linea", 1420),
-    Friend(2, "ReversiMaster", "jugando", 2150),
-    Friend(3, "StarPlayer99", "offline", 1100),
-    Friend(4, "RoboTactics", "en linea", 1575)
-)
-
-private val MOCK_REQUESTS = listOf(
-    Friend(101, "GamerX", "offline", 845),
-    Friend(102, "PixelArtist", "offline", 1320)
-)
-
-private val MOCK_GAME_REQUESTS = listOf(
-    Friend(4, "RoboTactics", "en linea", 1575, "1vs1", "1/2"),
-    Friend(1, "CyberNinja", "en linea", 1420, "1vs1vs1vs1", "3/4")
-)
-
-private val AVATAR_EMOJIS = listOf("🟣", "🔵", "⚪", "⚫")
-
-private fun getAvatarFromSeed(seed: String): String {
-    var hash = 0
-    seed.forEach { char ->
-        hash = (hash * 31 + char.code)
-    }
-    val index = Math.abs(hash) % AVATAR_EMOJIS.size
-    return AVATAR_EMOJIS[index]
-}
-
 @Composable
 fun FriendsScreen(onNavigate: (String) -> Unit) {
-    // Estados principales
-    var friends by remember { mutableStateOf(MOCK_FRIENDS) }
-    var requests by remember { mutableStateOf(MOCK_REQUESTS) }
-    var gameRequests by remember { mutableStateOf(MOCK_GAME_REQUESTS) }
+    var friends by remember { mutableStateOf<List<FriendInfo>>(emptyList()) }
+    var requests by remember { mutableStateOf<List<FriendInfo>>(emptyList()) }
+    var gameInvites by remember { mutableStateOf<List<GameInviteInfo>>(emptyList()) }
     var toast by remember { mutableStateOf(ToastData("", "info")) }
+    var isLoading by remember { mutableStateOf(true) }
 
-    // Estado del Diálogo "Añadir Amigo"
     var showAddFriendDialog by remember { mutableStateOf(false) }
     var newFriendName by remember { mutableStateOf("") }
+    var isSendingRequest by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
@@ -93,19 +59,45 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
         }
     }
 
-    // Lógica para añadir amigo
-    val onAddFriendSubmit = {
+    fun loadSocialPanel() {
+        scope.launch {
+            isLoading = true
+            when (val result = FriendsRepository.getSocialPanel()) {
+                is UserResult.Success -> {
+                    friends = result.data.friends
+                    requests = result.data.pending_requests
+                    gameInvites = result.data.game_invitations
+                }
+                is UserResult.Error -> {
+                    showToast(result.message, "error")
+                }
+            }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        loadSocialPanel()
+    }
+
+    val onAddFriendSubmit: () -> Unit = {
         val trimmedName = newFriendName.trim()
         if (trimmedName.isEmpty()) {
             showToast("Escribe un nombre de usuario", "error")
         } else {
-            val alreadyFriend = friends.any { it.name.equals(trimmedName, ignoreCase = true) }
-            if (alreadyFriend) {
-                showToast("$trimmedName ya está en tu lista", "error")
-            } else {
-                showToast("Solicitud enviada a $trimmedName", "info")
-                showAddFriendDialog = false
-                newFriendName = ""
+            scope.launch {
+                isSendingRequest = true
+                when (val result = FriendsRepository.sendFriendRequest(trimmedName)) {
+                    is UserResult.Success -> {
+                        showToast("Solicitud enviada a $trimmedName", "success")
+                        showAddFriendDialog = false
+                        newFriendName = ""
+                    }
+                    is UserResult.Error -> {
+                        showToast(result.message, "error")
+                    }
+                }
+                isSendingRequest = false
             }
         }
     }
@@ -146,76 +138,131 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 StatCard("Total", friends.size.toString(), Modifier.weight(1f))
-                StatCard("En línea", friends.count { it.status == "en linea" }.toString(), Modifier.weight(1f), Color(0xFF4ade80))
-                StatCard("Jugando", friends.count { it.status == "jugando" }.toString(), Modifier.weight(1f), Color(0xFFfbbf24))
+                StatCard(
+                    "En línea",
+                    friends.count { it.status == "online" || it.status == "en linea" }.toString(),
+                    Modifier.weight(1f),
+                    Color(0xFF4ade80)
+                )
+                StatCard(
+                    "Jugando",
+                    friends.count { it.status == "jugando" || it.status == "playing" }.toString(),
+                    Modifier.weight(1f),
+                    Color(0xFFfbbf24)
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Listas
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 20.dp)
-            ) {
-                if (requests.isNotEmpty()) {
-                    item { SectionHeader("Solicitudes de amistad (${requests.size})") }
-                    items(requests) { request ->
+            if (isLoading) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryColor)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp)
+                ) {
+                    // Solicitudes de amistad pendientes
+                    if (requests.isNotEmpty()) {
+                        item { SectionHeader("Solicitudes de amistad (${requests.size})") }
+                        items(requests, key = { it.id }) { request ->
+                            FriendItem(
+                                friend = request,
+                                isRequest = true,
+                                onAccept = {
+                                    scope.launch {
+                                        when (FriendsRepository.acceptFriendRequest(request.id)) {
+                                            is UserResult.Success -> {
+                                                showToast("¡Amigo aceptado!", "success")
+                                                loadSocialPanel()
+                                            }
+                                            is UserResult.Error -> showToast("Error al aceptar", "error")
+                                        }
+                                    }
+                                },
+                                onReject = {
+                                    scope.launch {
+                                        when (FriendsRepository.rejectFriendRequest(request.id)) {
+                                            is UserResult.Success -> {
+                                                showToast("Solicitud rechazada", "error")
+                                                loadSocialPanel()
+                                            }
+                                            is UserResult.Error -> showToast("Error al rechazar", "error")
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    // Lista de amigos
+                    item { SectionHeader("Tus Amigos (${friends.size})") }
+                    if (friends.isEmpty() && requests.isEmpty()) {
+                        item {
+                            Text(
+                                "Aún no tienes amigos. ¡Añade uno!",
+                                color = TextMutedColor,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(vertical = 20.dp)
+                            )
+                        }
+                    }
+                    items(friends, key = { it.id }) { friend ->
                         FriendItem(
-                            friend = request,
-                            isRequest = true,
-                            onAccept = {
-                                requests = requests.filter { it.id != request.id }
-                                friends = friends + request.copy(status = "en linea")
-                                showToast("¡Amigo aceptado!", "success")
-                            },
-                            onReject = {
-                                requests = requests.filter { it.id != request.id }
-                                showToast("Solicitud rechazada", "error")
+                            friend = friend,
+                            onInvite = { showToast("Retando a ${friend.name}...") },
+                            onRemove = {
+                                scope.launch {
+                                    when (FriendsRepository.removeFriend(friend.id)) {
+                                        is UserResult.Success -> {
+                                            showToast("Eliminado de amigos", "error")
+                                            loadSocialPanel()
+                                        }
+                                        is UserResult.Error -> showToast("Error al eliminar", "error")
+                                    }
+                                }
                             }
                         )
                     }
-                }
 
-                item { SectionHeader("Tus Amigos (${friends.size})") }
-                items(friends) { friend ->
-                    FriendItem(
-                        friend = friend,
-                        onInvite = { showToast("Retando a ${friend.name}...") },
-                        onRemove = {
-                            friends = friends.filter { it.id != friend.id }
-                            gameRequests = gameRequests.filter { it.name != friend.name }
-                            showToast("Eliminado de amigos", "error")
+                    // Invitaciones de juego
+                    if (gameInvites.isNotEmpty()) {
+                        item { SectionHeader("Invitaciones de juego (${gameInvites.size})") }
+                        items(gameInvites, key = { it.game_id }) { invite ->
+                            GameInviteItem(
+                                invite = invite,
+                                onAccept = {
+                                    scope.launch {
+                                        when (GamesRepository.acceptGameInvite(invite.game_id)) {
+                                            is UserResult.Success -> {
+                                                showToast("¡Aceptando partida!", "success")
+                                                onNavigate("waiting-room/${invite.mode}/${invite.game_id}")
+                                            }
+                                            is UserResult.Error -> showToast("Error al aceptar", "error")
+                                        }
+                                    }
+                                },
+                                onReject = {
+                                    scope.launch {
+                                        when (GamesRepository.rejectGameInvite(invite.game_id)) {
+                                            is UserResult.Success -> {
+                                                showToast("Invitación rechazada", "error")
+                                                loadSocialPanel()
+                                            }
+                                            is UserResult.Error -> showToast("Error al rechazar", "error")
+                                        }
+                                    }
+                                }
+                            )
                         }
-                    )
-                }
-
-                val activeGameRequests = gameRequests.filter { req ->
-                    friends.any { f -> f.name == req.name && f.status == "en linea" }
-                }
-
-                if (activeGameRequests.isNotEmpty()) {
-                    item { SectionHeader("Solicitudes de juego (${activeGameRequests.size})") }
-                    items(activeGameRequests) { gRequest ->
-                        FriendItem(
-                            friend = gRequest,
-                            isGameRequest = true,
-                            onAccept = {
-                                gameRequests = gameRequests.filter { it.id != gRequest.id }
-                                showToast("Aceptando duelo de ${gRequest.name}...", "success")
-                            },
-                            onReject = {
-                                gameRequests = gameRequests.filter { it.id != gRequest.id }
-                                showToast("Duelo rechazado", "error")
-                            }
-                        )
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón Volver
             Button(
                 onClick = { onNavigate("menu") },
                 modifier = Modifier
@@ -229,7 +276,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // --- DIÁLOGO AÑADIR AMIGO ---
+        // Dialog Añadir Amigo
         if (showAddFriendDialog) {
             Dialog(onDismissRequest = { showAddFriendDialog = false }) {
                 Surface(
@@ -272,26 +319,35 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                 unfocusedIndicatorColor = Color.Transparent
                             ),
                             shape = RoundedCornerShape(12.dp),
-                            singleLine = true
+                            singleLine = true,
+                            enabled = !isSendingRequest
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Botón Enviar Solicitud con estilo estandarizado (Igual que Volver al menú)
                         Button(
                             onClick = onAddFriendSubmit,
+                            enabled = !isSendingRequest,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp), // Misma altura que el botón Volver
+                                .height(48.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
-                            shape = RoundedCornerShape(12.dp) // Mismo redondeado
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(
-                                "Enviar solicitud",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                            if (isSendingRequest) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    "Enviar solicitud",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
                         }
 
                         TextButton(
@@ -305,7 +361,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
             }
         }
 
-        // Toast Overlay
+        // Toast
         if (toast.visible) {
             Surface(
                 modifier = Modifier
@@ -313,7 +369,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                     .padding(top = 60.dp),
                 color = SurfaceColor,
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, if(toast.type == "error") Color.Red else PrimaryColor)
+                border = BorderStroke(1.dp, if (toast.type == "error") Color.Red else PrimaryColor)
             ) {
                 Text(toast.message, modifier = Modifier.padding(16.dp), color = TextColor)
             }
@@ -343,24 +399,20 @@ private fun SectionHeader(title: String) {
 
 @Composable
 private fun FriendItem(
-    friend: Friend,
+    friend: FriendInfo,
     isRequest: Boolean = false,
-    isGameRequest: Boolean = false,
     onAccept: () -> Unit = {},
     onReject: () -> Unit = {},
     onInvite: () -> Unit = {},
     onRemove: () -> Unit = {}
 ) {
-    val isOffline = friend.status == "offline"
+    val isOffline = friend.status == "offline" || friend.status == null
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = SurfaceColor,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(
-            1.dp,
-            if(isRequest || isGameRequest) PrimaryColor.copy(0.6f) else BorderColor
-        )
+        border = BorderStroke(1.dp, if (isRequest) PrimaryColor.copy(0.6f) else BorderColor)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -370,36 +422,54 @@ private fun FriendItem(
                 modifier = Modifier.size(45.dp).background(SurfaceLightColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(getAvatarFromSeed(friend.name), fontSize = 24.sp)
+                Text(friend.name.firstOrNull()?.uppercase() ?: "?", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextColor)
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(friend.name, fontWeight = FontWeight.Bold, color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-
-                if (isGameRequest) {
-                    Text("${friend.gameMode} • ${friend.playersCount}", fontSize = 11.sp, color = Color(0xFFc4b5fd))
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(6.dp).background(
-                            when(friend.status) {
-                                "en linea" -> Color.Green
-                                "jugando" -> Color.Yellow
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(friend.name, fontWeight = FontWeight.Bold, color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if ((friend.unread_count ?: 0) > 0) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            color = PrimaryColor,
+                            shape = CircleShape,
+                            modifier = Modifier.size(18.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("${friend.unread_count}", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(6.dp).background(
+                            when (friend.status) {
+                                "online", "en linea" -> Color.Green
+                                "playing", "jugando" -> Color.Yellow
                                 else -> Color.Gray
                             }, CircleShape
-                        ))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = friend.status.replaceFirstChar { it.uppercase() },
-                            fontSize = 12.sp,
-                            color = TextMutedColor
                         )
-                    }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = when (friend.status) {
+                            "online" -> "En línea"
+                            "playing" -> "Jugando"
+                            "offline" -> "Desconectado"
+                            else -> friend.status?.replaceFirstChar { it.uppercase() } ?: "Desconectado"
+                        },
+                        fontSize = 12.sp,
+                        color = TextMutedColor
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("${friend.rr} RR", fontSize = 11.sp, color = Color(0xFFfbbf24), fontWeight = FontWeight.Bold)
                 }
             }
 
-            if (isRequest || isGameRequest) {
+            if (isRequest) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     IconButton(
                         onClick = onAccept,
@@ -427,9 +497,53 @@ private fun FriendItem(
                     }
 
                     IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
-                        Text("🗑️", fontSize = 14.sp)
+                        Text("X", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFf87171))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GameInviteItem(
+    invite: GameInviteInfo,
+    onAccept: () -> Unit,
+    onReject: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = SurfaceColor,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, PrimaryColor.copy(0.6f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier.size(45.dp).background(PrimaryColor.copy(0.2f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(invite.creator.firstOrNull()?.uppercase() ?: "?", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = PrimaryColor)
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(invite.creator, fontWeight = FontWeight.Bold, color = TextColor)
+                Text("${invite.mode}", fontSize = 11.sp, color = Color(0xFFc4b5fd))
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                IconButton(
+                    onClick = onAccept,
+                    modifier = Modifier.size(32.dp).background(Color(0xFF4ade80).copy(0.2f), CircleShape)
+                ) { Text("✓", color = Color(0xFF4ade80)) }
+                IconButton(
+                    onClick = onReject,
+                    modifier = Modifier.size(32.dp).background(Color(0xFFf87171).copy(0.2f), CircleShape)
+                ) { Text("✕", color = Color(0xFFf87171)) }
             }
         }
     }

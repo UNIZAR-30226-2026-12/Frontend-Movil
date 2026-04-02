@@ -18,47 +18,42 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.random_reversi.R
+import com.example.random_reversi.data.remote.GameWebSocket
 import com.example.random_reversi.ui.theme.*
-
-// --- Modelos de Datos ---
-private enum class PieceColor4P { BLACK, WHITE, RED, BLUE }
-
-private data class BoardCell4P(
-    val piece: PieceColor4P? = null,
-    val isFixed: Boolean = false
-)
-
-private data class Player4P(
-    val name: String,
-    val score: Int,
-    val color: PieceColor4P,
-    val rr: Int
-)
 
 private val BOARD_SIZE_4P = 16
 private val MutedRed = Color(0xFFB71C1C)
 private val MutedBlue = Color(0xFF0D47A1)
 
 @Composable
-fun GameBoard1v1v1v1Screen(onNavigate: (String) -> Unit) {
-    // --- ESTADOS ---
-    var board by remember { mutableStateOf(createInitialBoard4P()) }
-    var currentTurn by remember { mutableStateOf(PieceColor4P.BLACK) }
-    var gameOver by remember { mutableStateOf(false) }
+fun GameBoard1v1v1v1Screen(
+    gameId: Int = -1,
+    onNavigate: (String) -> Unit
+) {
+    val ws = remember { if (gameId > 0) GameWebSocket(gameId) else null }
+    val gameState by ws?.gameState?.collectAsState() ?: remember { mutableStateOf(com.example.random_reversi.data.remote.GameState()) }
+    val myColor by ws?.myColor?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
+    val connectionState by ws?.connectionState?.collectAsState() ?: remember { mutableStateOf("disconnected") }
 
-    // Estado para el zoom (null = vista general, 0..3 = cuadrantes)
     var selectedQuadrant by remember { mutableStateOf<Int?>(null) }
+    var showSurrenderConfirm by remember { mutableStateOf(false) }
 
-    val players = listOf(
-        Player4P("Jugador", 4, PieceColor4P.BLACK, 2250),
-        Player4P("CyberNinja", 4, PieceColor4P.WHITE, 1420),
-        Player4P("NovaMind", 4, PieceColor4P.RED, 1650),
-        Player4P("ShadowFox", 4, PieceColor4P.BLUE, 1850)
+    LaunchedEffect(gameId) { ws?.connect() }
+    DisposableEffect(Unit) { onDispose { ws?.disconnect() } }
+
+    val isMyTurn = gameState.current_player == myColor
+    val gameOver = gameState.game_over
+
+    // Map color names to display info
+    val colorOrder = listOf("piece_1", "piece_2", "piece_3", "piece_4")
+    val colorDisplayNames = mapOf(
+        "piece_1" to "J1", "piece_2" to "J2",
+        "piece_3" to "J3", "piece_4" to "J4",
+        "black" to "Negras", "white" to "Blancas"
     )
 
     val arenaBg = R.drawable.icebackground
@@ -79,38 +74,108 @@ fun GameBoard1v1v1v1Screen(onNavigate: (String) -> Unit) {
         ) {
             Spacer(modifier = Modifier.height(48.dp))
 
-            // 1. Botón Abandonar (Idéntico a 1v1)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            // Top bar
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(8.dp).background(
+                            when (connectionState) {
+                                "connected" -> Color.Green
+                                "waiting" -> Color.Yellow
+                                "error" -> Color.Red
+                                else -> Color.Gray
+                            }, CircleShape
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        when (connectionState) {
+                            "connected" -> "Conectado"
+                            "waiting" -> "Esperando..."
+                            else -> connectionState
+                        },
+                        fontSize = 11.sp, color = TextMutedColor
+                    )
+                }
                 OutlinedButton(
-                    onClick = { onNavigate("online-game") },
+                    onClick = { showSurrenderConfirm = true },
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color(0xFFFCA5A5),
                         containerColor = Color(0xFFF87171).copy(alpha = 0.15f)
                     ),
                     border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.35f)),
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(36.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
                 ) {
-                    Text("Abandonar partida", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("Abandonar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // 2. Turno (En español)
-            StatusTurnBadge4P(currentTurn, gameOver)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 3. Marcadores Superiores (P1 y P2)
-            Row(modifier = Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-                PlayerCard4P(players[0], currentTurn == PieceColor4P.BLACK)
-                PlayerCard4P(players[1], currentTurn == PieceColor4P.WHITE)
+            // Turn indicator
+            Surface(
+                color = when {
+                    gameOver -> Color.DarkGray
+                    isMyTurn -> PrimaryColor
+                    else -> SurfaceColor
+                },
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color.White.copy(0.2f))
+            ) {
+                Text(
+                    text = when {
+                        gameOver -> gameState.winner?.let {
+                            if (it == myColor) "¡VICTORIA!" else "DERROTA"
+                        } ?: "PARTIDA FINALIZADA"
+                        isMyTurn -> "TU TURNO"
+                        else -> "TURNO: ${colorDisplayNames[gameState.current_player] ?: gameState.current_player ?: "..."}"
+                    },
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // 4. TABLERO CON LÓGICA DE ZOOM
+            // Scores row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                gameState.scores.entries.take(4).forEachIndexed { index, (color, score) ->
+                    val isMe = color == myColor
+                    val isActive = color == gameState.current_player
+                    val pieceColor = when (index) {
+                        0 -> Color.Black
+                        1 -> Color.White
+                        2 -> MutedRed
+                        3 -> MutedBlue
+                        else -> Color.Gray
+                    }
+                    ScoreChip4P(
+                        label = if (isMe) "Tú" else colorDisplayNames[color] ?: "J${index + 1}",
+                        score = score,
+                        pieceColor = pieceColor,
+                        isActive = isActive
+                    )
+                }
+                // Fallback when no scores yet
+                if (gameState.scores.isEmpty()) {
+                    repeat(4) {
+                        ScoreChip4P("J${it + 1}", 0, when (it) {
+                            0 -> Color.Black; 1 -> Color.White; 2 -> MutedRed; else -> MutedBlue
+                        }, false)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Board
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -127,8 +192,11 @@ fun GameBoard1v1v1v1Screen(onNavigate: (String) -> Unit) {
                     contentScale = ContentScale.FillBounds
                 )
 
+                val boardData = gameState.board
+                val hasBoard = boardData.isNotEmpty()
+
                 if (selectedQuadrant == null) {
-                    // VISTA GENERAL (16x16) con selección de cuadrante
+                    // Full board view with quadrant selection
                     Column(Modifier.fillMaxSize()) {
                         repeat(2) { rowQ ->
                             Row(Modifier.weight(1f)) {
@@ -142,41 +210,70 @@ fun GameBoard1v1v1v1Screen(onNavigate: (String) -> Unit) {
                                             .clickable { selectedQuadrant = qIndex },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        // Mini tablero 8x8 interno
-                                        QuadrantPreview(board, rowQ * 8, colQ * 8)
-
-                                        // Overlay de ayuda visual
-                                        Box(
-                                            Modifier.fillMaxSize().background(Color.Black.copy(0.1f))
-                                        )
+                                        if (hasBoard) {
+                                            QuadrantPreviewWs(boardData, rowQ * 8, colQ * 8)
+                                        }
+                                        Box(Modifier.fillMaxSize().background(Color.Black.copy(0.1f)))
                                     }
                                 }
                             }
                         }
                     }
                 } else {
-                    // VISTA ZOOM (8x8 del cuadrante seleccionado)
+                    // Zoomed quadrant
                     val startRow = (selectedQuadrant!! / 2) * 8
                     val startCol = (selectedQuadrant!! % 2) * 8
 
                     Column(Modifier.fillMaxSize()) {
-                        for (r in startRow until startRow + 8) {
+                        for (r in startRow until (startRow + 8).coerceAtMost(if (hasBoard) boardData.size else startRow + 8)) {
                             Row(Modifier.weight(1f)) {
-                                for (c in startCol until startCol + 8) {
-                                    GameCell4P(
-                                        modifier = Modifier.weight(1f),
-                                        cell = board[r][c],
-                                        onClick = {
-                                            // Aquí irá la lógica de movimiento
-                                            selectedQuadrant = null // Volver tras mover
+                                for (c in startCol until (startCol + 8).coerceAtMost(if (hasBoard && boardData.isNotEmpty()) boardData[0].size else startCol + 8)) {
+                                    val cellValue = boardData.getOrNull(r)?.getOrNull(c)
+                                    val isValidMove = gameState.valid_moves.any { it.size >= 2 && it[0] == r && it[1] == c }
+                                    val canClick = isMyTurn && isValidMove && !gameOver
+
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                            .border(0.5.dp, Color.Black.copy(0.1f))
+                                            .then(if (canClick) Modifier.clickable {
+                                                ws?.sendMove(r, c)
+                                                selectedQuadrant = null
+                                            } else Modifier),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (canClick) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize(0.35f)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFF4ADE80).copy(alpha = 0.4f))
+                                            )
                                         }
-                                    )
+                                        if (cellValue != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize(0.65f)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        when (cellValue) {
+                                                            0 -> Color.Black
+                                                            1 -> Color.White
+                                                            2 -> MutedRed
+                                                            3 -> MutedBlue
+                                                            else -> Color.Gray
+                                                        }
+                                                    )
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Botón para quitar zoom (volver atrás)
+                    // Zoom out button
                     Box(Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.BottomEnd) {
                         SmallFloatingActionButton(
                             onClick = { selectedQuadrant = null },
@@ -185,63 +282,90 @@ fun GameBoard1v1v1v1Screen(onNavigate: (String) -> Unit) {
                             shape = CircleShape,
                             modifier = Modifier.size(32.dp)
                         ) {
-                            Text("🔍-", fontSize = 12.sp)
+                            Text("-", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // 5. Marcadores Inferiores (P3 y P4)
-            Row(modifier = Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-                PlayerCard4P(players[2], currentTurn == PieceColor4P.RED)
-                PlayerCard4P(players[3], currentTurn == PieceColor4P.BLUE)
+            if (isMyTurn && !gameOver && gameState.valid_moves.isNotEmpty()) {
+                Text(
+                    "${gameState.valid_moves.size} movimiento(s) disponible(s)",
+                    color = PrimaryColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
+        }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 6. Panel de Habilidades (Idéntico a 1v1)
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.Black.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        "HABILIDADES DISPONIBLES",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        // Estado vacío idéntico a 1v1
-                        Text(
-                            "No tienes habilidades",
-                            color = Color.White.copy(0.6f),
-                            fontSize = 12.sp
-                        )
+        // Surrender dialog
+        if (showSurrenderConfirm) {
+            AlertDialog(
+                onDismissRequest = { showSurrenderConfirm = false },
+                containerColor = BgColor,
+                title = { Text("Abandonar partida", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = { Text("¿Seguro que quieres rendirte?", color = TextMutedColor) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            ws?.sendSurrender()
+                            showSurrenderConfirm = false
+                            onNavigate("online-game")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF87171))
+                    ) { Text("Rendirme") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showSurrenderConfirm = false }) {
+                        Text("Cancelar", color = TextMutedColor)
                     }
                 }
-            }
+            )
+        }
+
+        // Game over
+        if (gameOver) {
+            val isWinner = gameState.winner == myColor
+            AlertDialog(
+                onDismissRequest = {},
+                containerColor = BgColor,
+                title = { Text("Partida Finalizada", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        gameState.scores.entries.forEachIndexed { i, (color, score) ->
+                            val label = if (color == myColor) "Tú" else "Jugador ${i + 1}"
+                            Text("$label: $score pts", color = Color.White)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            if (isWinner) "¡VICTORIA!" else "DERROTA",
+                            color = if (isWinner) Color(0xFF4ADE80) else Color(0xFFF87171),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 18.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { ws?.disconnect(); onNavigate("online-game") },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                    ) { Text("Volver al Menú") }
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun QuadrantPreview(board: List<List<BoardCell4P>>, startRow: Int, startCol: Int) {
+private fun QuadrantPreviewWs(board: List<List<Int?>>, startRow: Int, startCol: Int) {
     Column(Modifier.fillMaxSize().padding(2.dp)) {
-        for (r in startRow until startRow + 8) {
+        for (r in startRow until (startRow + 8).coerceAtMost(board.size)) {
             Row(Modifier.weight(1f)) {
-                for (c in startCol until startCol + 8) {
-                    val cell = board[r][c]
+                val row = board.getOrNull(r)
+                for (c in startCol until (startCol + 8).coerceAtMost(row?.size ?: (startCol + 8))) {
+                    val cell = row?.getOrNull(c)
                     Box(
                         Modifier
                             .weight(1f)
@@ -249,12 +373,20 @@ private fun QuadrantPreview(board: List<List<BoardCell4P>>, startRow: Int, start
                             .border(0.1.dp, Color.White.copy(0.05f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (cell.piece != null) {
+                        if (cell != null) {
                             Box(
                                 Modifier
                                     .fillMaxSize(0.6f)
                                     .clip(CircleShape)
-                                    .background(getPieceColor(cell.piece))
+                                    .background(
+                                        when (cell) {
+                                            0 -> Color.Black
+                                            1 -> Color.White
+                                            2 -> MutedRed
+                                            3 -> MutedBlue
+                                            else -> Color.Gray
+                                        }
+                                    )
                             )
                         }
                     }
@@ -265,111 +397,28 @@ private fun QuadrantPreview(board: List<List<BoardCell4P>>, startRow: Int, start
 }
 
 @Composable
-private fun GameCell4P(
-    modifier: Modifier,
-    cell: BoardCell4P,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = modifier
-            .fillMaxHeight()
-            .border(0.5.dp, Color.Black.copy(0.1f))
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        if (cell.piece != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize(0.65f)
-                    .clip(CircleShape)
-                    .background(getPieceColor(cell.piece))
-                    .then(
-                        if (cell.isFixed) Modifier.border(2.dp, Color(0xFFFBBF24), CircleShape)
-                        else Modifier
-                    )
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatusTurnBadge4P(turn: PieceColor4P, isOver: Boolean) {
-    val colorName = when(turn) {
-        PieceColor4P.BLACK -> "NEGRAS"
-        PieceColor4P.WHITE -> "BLANCAS"
-        PieceColor4P.RED -> "ROJAS"
-        PieceColor4P.BLUE -> "AZULES"
-    }
-
-    val bgColor = if (isOver) Color.DarkGray else getPieceColor(turn)
-    val txtColor = if (turn == PieceColor4P.WHITE) Color.Black else Color.White
-
-    Surface(
-        color = bgColor,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(0.2f))
-    ) {
-        Text(
-            text = if (isOver) "PARTIDA TERMINADA" else "TURNO: $colorName",
-            color = txtColor,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.ExtraBold
-        )
-    }
-}
-
-@Composable
-private fun PlayerCard4P(player: Player4P, isActive: Boolean) {
+private fun ScoreChip4P(label: String, score: Int, pieceColor: Color, isActive: Boolean) {
     Surface(
         color = if (isActive) Color.White.copy(0.1f) else Color.Transparent,
-        shape = RoundedCornerShape(12.dp),
-        border = if (isActive) BorderStroke(1.dp, Color(0xFFFBBF24)) else null,
-        modifier = Modifier.width(150.dp)
+        shape = RoundedCornerShape(8.dp),
+        border = if (isActive) BorderStroke(1.dp, Color(0xFFFBBF24)) else null
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(8.dp)
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(16.dp)
                     .clip(CircleShape)
-                    .background(getPieceColor(player.color))
-                    .border(1.dp, Color.White.copy(0.3f), CircleShape)
+                    .background(pieceColor)
+                    .border(0.5.dp, Color.White.copy(0.3f), CircleShape)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(4.dp))
             Column {
-                Text(player.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${player.score} pts", color = Color(0xFFFBBF24), fontWeight = FontWeight.Black, fontSize = 12.sp)
+                Text(label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("$score", color = Color(0xFFFBBF24), fontWeight = FontWeight.Black, fontSize = 11.sp)
             }
         }
     }
-}
-
-private fun getPieceColor(color: PieceColor4P): Color {
-    return when(color) {
-        PieceColor4P.BLACK -> Color.Black
-        PieceColor4P.WHITE -> Color.White
-        PieceColor4P.RED -> MutedRed
-        PieceColor4P.BLUE -> MutedBlue
-    }
-}
-
-private fun createInitialBoard4P(): List<List<BoardCell4P>> {
-    val board = List(BOARD_SIZE_4P) { MutableList(BOARD_SIZE_4P) { BoardCell4P() } }
-
-    fun placeCluster(r: Int, c: Int, tl: PieceColor4P, tr: PieceColor4P, bl: PieceColor4P, br: PieceColor4P) {
-        board[r][c] = BoardCell4P(tl)
-        board[r][c + 1] = BoardCell4P(tr)
-        board[r + 1][c] = BoardCell4P(bl)
-        board[r + 1][c + 1] = BoardCell4P(br)
-    }
-
-    placeCluster(3, 3, PieceColor4P.BLACK, PieceColor4P.WHITE, PieceColor4P.RED, PieceColor4P.BLUE)
-    placeCluster(3, 11, PieceColor4P.WHITE, PieceColor4P.BLACK, PieceColor4P.BLUE, PieceColor4P.RED)
-    placeCluster(11, 3, PieceColor4P.RED, PieceColor4P.BLUE, PieceColor4P.BLACK, PieceColor4P.WHITE)
-    placeCluster(11, 11, PieceColor4P.BLUE, PieceColor4P.RED, PieceColor4P.WHITE, PieceColor4P.BLACK)
-
-    return board
 }

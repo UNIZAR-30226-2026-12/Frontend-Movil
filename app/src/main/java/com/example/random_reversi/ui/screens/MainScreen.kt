@@ -197,15 +197,26 @@ fun MainScreen(
                     )
                 }
 
-                // NUEVO: Botón Ancho (Reglas del juego)
-                MenuCard(
-                    icon = "📘",
-                    title = "Reglas del juego",
-                    description = "Aprende a jugar a Random Reversi",
+                // Fila 3
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    isWide = true,
-                    onClick = { onNavigate("rules") }
-                )
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    MenuCard(
+                        icon = "🏆",
+                        title = "Ranking",
+                        description = "Top 50 jugadores",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigate("ranking") }
+                    )
+                    MenuCard(
+                        icon = "📘",
+                        title = "Reglas",
+                        description = "Aprende a jugar",
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigate("rules") }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(40.dp))
