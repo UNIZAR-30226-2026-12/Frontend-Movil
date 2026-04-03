@@ -484,7 +484,7 @@ fun GameBoard1v1v1v1Screen(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                     ) {
-                        Text("Volver a amigos")
+                        Text(if (returnTo == "online-game") "Volver a Jugar Online" else "Volver a amigos")
                     }
                 }
             )

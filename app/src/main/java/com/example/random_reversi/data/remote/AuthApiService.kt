@@ -219,12 +219,21 @@ data class CreateLobbyResponse(
 
 data class PublicLobby(
     val game_id: Int,
-    val creator: String,
-    val creator_elo: Int,
-    val mode: String,
-    val players: Int,
-    val max_players: Int,
-    val status: String
+    val creator: String? = null,
+    val avatar_url: String? = null,
+    @SerializedName(value = "creator_elo", alternate = ["creator_rr", "rr", "elo"])
+    val creator_elo: Int? = null,
+    val mode: String? = null,
+    @SerializedName(value = "players", alternate = ["current_players", "num_players"])
+    val players: Int? = null,
+    @SerializedName(value = "max_players", alternate = ["capacity"])
+    val max_players: Int? = null,
+    val status: String? = null
+)
+
+data class PublicLobbiesResponse(
+    @SerializedName(value = "lobbies", alternate = ["games", "public_games"])
+    val lobbies: List<PublicLobby> = emptyList()
 )
 
 data class InviteFriendsRequest(
@@ -375,7 +384,7 @@ interface AuthApiService {
     suspend fun createLobby(@Body request: CreateLobbyRequest): Response<CreateLobbyResponse>
 
     @GET("api/games/public")
-    suspend fun getPublicLobbies(): Response<List<PublicLobby>>
+    suspend fun getPublicLobbies(): Response<PublicLobbiesResponse>
 
     @POST("api/games/join/{game_id}")
     suspend fun joinLobby(@Path("game_id") gameId: Int): Response<MessageResponse>

@@ -36,7 +36,27 @@ object GamesRepository {
         try {
             val response = ApiClient.authApiService.getPublicLobbies()
             if (response.isSuccessful) {
-                UserResult.Success(response.body() ?: emptyList())
+                val parsed = response.body()?.lobbies ?: emptyList()
+                val normalized = parsed.map { lobby ->
+                    val safeMode = lobby.mode?.takeIf { it.isNotBlank() } ?: "1vs1"
+                    val normalizedMode = safeMode.lowercase()
+                    val computedMax = when {
+                        (lobby.max_players ?: 0) > 0 -> lobby.max_players ?: 0
+                        normalizedMode == "1vs1vs1vs1" || normalizedMode == "1v1v1v1" -> 4
+                        else -> 2
+                    }
+                    val safePlayers = lobby.players ?: 0
+                    val safeStatus = lobby.status?.takeIf { it.isNotBlank() } ?: "waiting"
+                    lobby.copy(
+                        creator = lobby.creator?.takeIf { it.isNotBlank() } ?: "Jugador",
+                        creator_elo = lobby.creator_elo ?: 0,
+                        mode = safeMode,
+                        players = if (safePlayers > 0) safePlayers else 1,
+                        max_players = computedMax,
+                        status = safeStatus
+                    )
+                }
+                UserResult.Success(normalized)
             } else {
                 UserResult.Error("Error al cargar partidas (${response.code()})")
             }

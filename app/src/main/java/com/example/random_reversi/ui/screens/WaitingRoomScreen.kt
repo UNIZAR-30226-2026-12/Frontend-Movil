@@ -277,7 +277,13 @@ fun WaitingRoomScreen(
             loadMissingHistories(mappedPlayers)
             errorMsg = null
 
-            if (!forcedExitTriggered && previousPlayers.isNotEmpty() && mappedPlayers.size < previousPlayers.size && wsRoomStatus != "playing") {
+            if (
+                returnTo == "friends" &&
+                !forcedExitTriggered &&
+                previousPlayers.isNotEmpty() &&
+                mappedPlayers.size < previousPlayers.size &&
+                wsRoomStatus != "playing"
+            ) {
                 val departed = previousPlayers.firstOrNull { prev -> mappedPlayers.none { now -> now.id == prev.id } }
                 forcedExitTriggered = true
                 val departedName = departed?.username
@@ -295,12 +301,6 @@ fun WaitingRoomScreen(
         if (gameId <= 0) return@LaunchedEffect
 
         while (isActive) {
-            val wsIsReady = wsConnectionState == "connected"
-            if (wsIsReady) {
-                delay(1200)
-                continue
-            }
-
             when (val result = GamesRepository.getLobbyState(gameId)) {
                 is UserResult.Success -> {
                     val previousPlayers = players
@@ -319,7 +319,13 @@ fun WaitingRoomScreen(
 
                     loadMissingHistories(nextPlayers)
 
-                    if (!forcedExitTriggered && previousPlayers.isNotEmpty() && nextPlayers.size < previousPlayers.size && result.data.status != "playing") {
+                    if (
+                        returnTo == "friends" &&
+                        !forcedExitTriggered &&
+                        previousPlayers.isNotEmpty() &&
+                        nextPlayers.size < previousPlayers.size &&
+                        result.data.status != "playing"
+                    ) {
                         val departed = previousPlayers.firstOrNull { prev -> nextPlayers.none { now -> now.id == prev.id } }
                         forcedExitTriggered = true
                         val departedName = departed?.username
@@ -333,11 +339,12 @@ fun WaitingRoomScreen(
                 }
                 is UserResult.Error -> {
                     val isForbidden = result.message.contains("403")
+                    val isRoomGone = result.message.contains("404")
                     val wsHasRoomContext = wsConnectionState == "connected" || wsConnectionState == "waiting"
                     if (!isForbidden || !wsHasRoomContext) {
                         errorMsg = result.message
                     }
-                    if (!forcedExitTriggered && isForbidden && players.isNotEmpty()) {
+                    if (returnTo == "friends" && !forcedExitTriggered && isForbidden && players.isNotEmpty()) {
                         forcedExitTriggered = true
                         val departedName = players.firstOrNull { it.username != localPlayerName }?.username
                             ?: opponentName
@@ -357,8 +364,7 @@ fun WaitingRoomScreen(
                             }
                         }
                     }
-                    val isRoomGone = result.message.contains("404")
-                    if (!forcedExitTriggered && isRoomGone) {
+                    if (returnTo == "friends" && !forcedExitTriggered && isRoomGone) {
                         forcedExitTriggered = true
                         val departedName = players.firstOrNull { it.username != localPlayerName }?.username
                             ?: opponentName
@@ -366,6 +372,23 @@ fun WaitingRoomScreen(
                         NavigationMessages.pushFriendsToast("$departedName ha abandonado la sala.")
                         onNavigate(returnTo)
                         return@LaunchedEffect
+                    }
+
+                    // En salas públicas: si la API devuelve 403/404 por salida del otro jugador,
+                    // limpiamos el estado visual para volver a "Esperando..." en vez de dejar datos stale.
+                    if (returnTo != "friends" && (isForbidden || isRoomGone)) {
+                        val localPlayer = players.firstOrNull { it.username == localPlayerName }
+                        players = listOf(
+                            localPlayer ?: LobbyPlayerInfo(
+                                id = -1,
+                                username = localPlayerName,
+                                rr = 0,
+                                avatar_url = profile.avatarUrl,
+                                is_ready = isLocalReady
+                            )
+                        )
+                        lobbyStatus = "waiting"
+                        errorMsg = null
                     }
                 }
             }
@@ -533,7 +556,7 @@ fun WaitingRoomScreen(
                                 if (isUpdatingReady) return@launch
                                 val nextReady = !isLocalReady
                                 isUpdatingReady = true
-                                val wsIsReady = wsConnectionState == "connected"
+                                val wsIsReady = wsConnectionState == "connected" || wsConnectionState == "waiting"
 
                                 if (wsIsReady) {
                                     // Igual que en web: si hay WS, enviamos sólo por WS.
