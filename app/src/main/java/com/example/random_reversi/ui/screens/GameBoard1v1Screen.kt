@@ -1,14 +1,39 @@
-package com.example.random_reversi.ui.screens
+﻿package com.example.random_reversi.ui.screens
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,14 +42,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.random_reversi.R
+import coil.compose.AsyncImage
+import com.example.random_reversi.data.UserRepository
+import com.example.random_reversi.data.UserResult
 import com.example.random_reversi.data.remote.GameWebSocket
-import com.example.random_reversi.ui.theme.*
+import com.example.random_reversi.ui.theme.BgColor
+import com.example.random_reversi.ui.theme.BorderColor
+import com.example.random_reversi.ui.theme.PrimaryColor
+import com.example.random_reversi.ui.theme.SurfaceColor
+import com.example.random_reversi.ui.theme.TextMutedColor
+import com.example.random_reversi.utils.AvatarPresets
 
 private val BOARD_SIZE = 8
+
+data class BoardPlayer(
+    val username: String,
+    val rr: Int,
+    val avatarUrl: String?
+)
 
 @Composable
 fun GameBoard1v1Screen(
@@ -35,116 +73,127 @@ fun GameBoard1v1Screen(
     val ws = remember { if (gameId > 0) GameWebSocket(gameId) else null }
     val gameState by ws?.gameState?.collectAsState() ?: remember { mutableStateOf(com.example.random_reversi.data.remote.GameState()) }
     val myColor by ws?.myColor?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
-    val connectionState by ws?.connectionState?.collectAsState() ?: remember { mutableStateOf("disconnected") }
-    val chatMessages by ws?.chatMessages?.collectAsState() ?: remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    val roomPlayersRaw by ws?.roomPlayers?.collectAsState() ?: remember { mutableStateOf(emptyList()) }
 
+    var myUsername by remember { mutableStateOf("Jugador") }
+    var myElo by remember { mutableStateOf(1000) }
+    var myAvatar by remember { mutableStateOf<String?>(null) }
+    var duelStyle by remember { mutableStateOf(PIECE_STYLES_1V1.first()) }
     var showSurrenderConfirm by remember { mutableStateOf(false) }
-    var chatInput by remember { mutableStateOf("") }
-    var showChat by remember { mutableStateOf(false) }
 
-    // Conectar WebSocket
+    val parsedPlayers = remember(roomPlayersRaw) {
+        roomPlayersRaw.mapNotNull { raw ->
+            try {
+                val username = raw.get("username")?.asString ?: return@mapNotNull null
+                val rr = raw.get("rr")?.asInt ?: 1000
+                val avatar = if (raw.has("avatar_url") && !raw.get("avatar_url").isJsonNull) raw.get("avatar_url").asString else null
+                BoardPlayer(username = username, rr = rr, avatarUrl = avatar)
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+
+    val myPlayerFromRoom = remember(parsedPlayers, myUsername, myColor) {
+        parsedPlayers.firstOrNull { it.username == myUsername }
+            ?: when (myColor) {
+                "black" -> parsedPlayers.getOrNull(0)
+                "white" -> parsedPlayers.getOrNull(1)
+                else -> parsedPlayers.firstOrNull()
+            }
+    }
+
+    val opponentFromRoom = remember(parsedPlayers, myPlayerFromRoom) {
+        parsedPlayers.firstOrNull { it.username != myPlayerFromRoom?.username }
+    }
+
+    val myDisplayName = myPlayerFromRoom?.username ?: myUsername
+    val myDisplayAvatar = myPlayerFromRoom?.avatarUrl ?: myAvatar
+    val myDisplayElo = myPlayerFromRoom?.rr ?: myElo
+
+    val opponentName = opponentFromRoom?.username ?: "Rival"
+    val opponentAvatar = opponentFromRoom?.avatarUrl
+    val opponentElo = opponentFromRoom?.rr ?: 1000
+
+    val effectiveMyPiece = remember(myColor, gameState.username_by_piece, myUsername) {
+        myColor ?: gameState.username_by_piece.entries.firstOrNull { it.value == myUsername }?.key
+    }
+
+    val isMyTurn = gameState.current_player == effectiveMyPiece
+    val gameOver = gameState.game_over
+
+    val myScore = if (effectiveMyPiece != null) gameState.scores[effectiveMyPiece] ?: 0 else 0
+    val opponentColor = when (effectiveMyPiece) {
+        "black" -> "white"
+        "white" -> "black"
+        else -> "white"
+    }
+    val opponentScore = gameState.scores[opponentColor] ?: 0
+
+    val myPieceName = if (effectiveMyPiece == "black") duelStyle.sideAName else duelStyle.sideBName
+    val opponentPieceName = if (effectiveMyPiece == "black") duelStyle.sideBName else duelStyle.sideAName
+
+    val arenaTheme = remember(myDisplayElo) { getArenaFromElo1v1(myDisplayElo) }
+
+    LaunchedEffect(Unit) {
+        when (val me = UserRepository.getMe()) {
+            is UserResult.Success -> {
+                myUsername = me.data.username
+                myElo = me.data.elo
+                myAvatar = me.data.avatar_url
+                val (duelIndex, _) = decodeBoardPiecePreference(me.data.preferred_piece_color)
+                duelStyle = PIECE_STYLES_1V1.getOrElse(duelIndex) { PIECE_STYLES_1V1.first() }
+            }
+            is UserResult.Error -> {
+                duelStyle = PIECE_STYLES_1V1.first()
+            }
+        }
+    }
+
     LaunchedEffect(gameId) {
         ws?.connect()
     }
 
-    // Desconectar al salir
     DisposableEffect(Unit) {
         onDispose { ws?.disconnect() }
     }
 
-    // Calcular scores
-    val myScore = myColor?.let { gameState.scores[it] } ?: 0
-    val opponentColor = when (myColor) {
-        "black" -> "white"
-        "white" -> "black"
-        else -> null
-    }
-    val opponentScore = opponentColor?.let { gameState.scores[it] } ?: 0
-    val isMyTurn = gameState.current_player == myColor
-    val gameOver = gameState.game_over
-
-    val arenaBg = R.drawable.icebackground
-    val boardSkin = R.drawable.iceboard
-
     Box(modifier = Modifier.fillMaxSize().background(BgColor)) {
-        // Fondo
         Image(
-            painter = painterResource(id = arenaBg),
+            painter = painterResource(id = arenaTheme.backgroundRes),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
-            alpha = 0.5f
+            alpha = 0.45f
         )
 
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(46.dp))
 
-            // Top bar: estado conexión + abandonar
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                // Estado de conexión
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(8.dp).background(
-                            when (connectionState) {
-                                "connected" -> Color.Green
-                                "waiting" -> Color.Yellow
-                                "error" -> Color.Red
-                                else -> Color.Gray
-                            }, CircleShape
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        when (connectionState) {
-                            "connected" -> "Conectado"
-                            "waiting" -> "Esperando..."
-                            "error" -> "Error conexión"
-                            "connecting" -> "Conectando..."
-                            else -> connectionState
-                        },
-                        fontSize = 11.sp, color = TextMutedColor
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Chat toggle
-                    OutlinedButton(
-                        onClick = { showChat = !showChat },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = PrimaryColor,
-                            containerColor = PrimaryColor.copy(alpha = 0.1f)
-                        ),
-                        border = BorderStroke(1.dp, PrimaryColor.copy(alpha = 0.3f)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(36.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp)
-                    ) {
-                        Text("Chat${if (chatMessages.isNotEmpty()) " (${chatMessages.size})" else ""}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    // Abandonar
-                    OutlinedButton(
-                        onClick = { showSurrenderConfirm = true },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFFCA5A5),
-                            containerColor = Color(0xFFF87171).copy(alpha = 0.15f)
-                        ),
-                        border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.35f)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(36.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp)
-                    ) {
-                        Text("Abandonar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = { showSurrenderConfirm = true },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFFFCA5A5),
+                        containerColor = Color(0xFFF87171).copy(alpha = 0.15f)
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.35f)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Text("Abandonar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Indicador de turno
             Surface(
                 color = when {
                     gameOver -> Color.DarkGray
@@ -152,90 +201,66 @@ fun GameBoard1v1Screen(
                     else -> SurfaceColor
                 },
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color.White.copy(0.2f))
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
             ) {
                 Text(
                     text = when {
-                        gameOver -> if (gameState.winner == myColor) "¡VICTORIA!" else if (gameState.winner == null) "EMPATE" else "DERROTA"
-                        isMyTurn -> "TU TURNO"
-                        else -> "TURNO DEL RIVAL"
+                        gameOver -> when {
+                            gameState.winner == null -> "Empate"
+                            gameState.winner == effectiveMyPiece -> "Has ganado"
+                            else -> "Has perdido"
+                        }
+                        isMyTurn -> "Tu turno"
+                        else -> "Turno del rival"
                     },
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PlayerPanel1v1(
+                    modifier = Modifier.weight(1f),
+                    name = myDisplayName,
+                    rr = myDisplayElo,
+                    avatarUrl = myDisplayAvatar,
+                    pieceColor = if (effectiveMyPiece == "black") duelStyle.sideA else duelStyle.sideB,
+                    pieceLabel = myPieceName,
+                    score = myScore,
+                    isActive = isMyTurn && !gameOver
+                )
+
+                PlayerPanel1v1(
+                    modifier = Modifier.weight(1f),
+                    name = opponentName,
+                    rr = opponentElo,
+                    avatarUrl = opponentAvatar,
+                    pieceColor = if (effectiveMyPiece == "black") duelStyle.sideB else duelStyle.sideA,
+                    pieceLabel = opponentPieceName,
+                    score = opponentScore,
+                    isActive = !isMyTurn && !gameOver
+                )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Scores
-            Row(modifier = Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-                PlayerMiniCard("Tú", myScore, myColor ?: "black", isMyTurn)
-                PlayerMiniCard("Rival", opponentScore, opponentColor ?: "white", !isMyTurn && !gameOver)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Chat panel (colapsable)
-            if (showChat) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 120.dp),
-                    color = Color.Black.copy(0.5f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, BorderColor)
-                ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
-                        Column(
-                            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        ) {
-                            chatMessages.forEach { (sender, msg) ->
-                                Text("$sender: $msg", color = TextColor, fontSize = 12.sp)
-                            }
-                            if (chatMessages.isEmpty()) {
-                                Text("Sin mensajes", color = TextMutedColor, fontSize = 12.sp)
-                            }
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextField(
-                                value = chatInput,
-                                onValueChange = { chatInput = it },
-                                modifier = Modifier.weight(1f).height(40.dp),
-                                placeholder = { Text("Mensaje...", fontSize = 12.sp) },
-                                colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedTextColor = TextColor,
-                                    unfocusedTextColor = TextColor
-                                ),
-                                singleLine = true,
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)
-                            )
-                            TextButton(onClick = {
-                                if (chatInput.isNotBlank()) {
-                                    ws?.sendChat(chatInput.trim())
-                                    chatInput = ""
-                                }
-                            }) {
-                                Text("Enviar", color = PrimaryColor, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // TABLERO
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color(0xFF204D2B))
-                    .border(4.dp, Color.Black.copy(0.3f), RoundedCornerShape(16.dp))
+                    .border(4.dp, Color.Black.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
             ) {
                 Image(
-                    painter = painterResource(id = boardSkin),
+                    painter = painterResource(id = arenaTheme.boardRes),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.FillBounds
@@ -247,14 +272,15 @@ fun GameBoard1v1Screen(
                             for (col in 0 until BOARD_SIZE) {
                                 val cellValue = gameState.board.getOrNull(row)?.getOrNull(col)
                                 val isValidMove = gameState.valid_moves.any { it.size >= 2 && it[0] == row && it[1] == col }
-                                val isMyTurnAndValid = isMyTurn && isValidMove && !gameOver
+                                val canPlayHere = isMyTurn && isValidMove && !gameOver
 
-                                GameCell(
+                                GameCell1v1(
                                     modifier = Modifier.weight(1f),
                                     cellValue = cellValue,
-                                    isValidMove = isMyTurnAndValid,
+                                    isValidMove = canPlayHere,
+                                    style = duelStyle,
                                     onClick = {
-                                        if (isMyTurnAndValid) {
+                                        if (canPlayHere) {
                                             ws?.sendMove(row, col)
                                         }
                                     }
@@ -265,58 +291,92 @@ fun GameBoard1v1Screen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Valid moves hint
-            if (isMyTurn && !gameOver && gameState.valid_moves.isNotEmpty()) {
-                Text(
-                    "${gameState.valid_moves.size} movimiento(s) disponible(s)",
-                    color = PrimaryColor,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+            Spacer(modifier = Modifier.height(10.dp))
         }
 
-        // Surrender confirm dialog
         if (showSurrenderConfirm) {
             AlertDialog(
                 onDismissRequest = { showSurrenderConfirm = false },
                 containerColor = BgColor,
                 title = { Text("Abandonar partida", color = Color.White, fontWeight = FontWeight.Bold) },
-                text = { Text("¿Seguro que quieres rendirte? Perderás la partida.", color = TextMutedColor) },
+                text = {
+                    Text(
+                        "Si abandonas esta partida en curso, se contará como una derrota en tu historial y perderás puntos RR.",
+                        color = TextMutedColor
+                    )
+                },
                 confirmButton = {
                     Button(
                         onClick = {
                             ws?.sendSurrender()
                             showSurrenderConfirm = false
+                            ws?.disconnect()
                             onNavigate(returnTo)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF87171))
                     ) {
-                        Text("Rendirme")
+                        Text("Abandonar partida")
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showSurrenderConfirm = false }) {
-                        Text("Cancelar", color = TextMutedColor)
+                        Text("Seguir jugando", color = TextMutedColor)
                     }
                 }
             )
         }
 
-        // Game Over dialog
         if (gameOver) {
-            val isWinner = gameState.winner == myColor
+            val playerWon = gameState.winner == effectiveMyPiece
             val isDraw = gameState.winner == null
-            GameOverDialog(
-                myScore = myScore,
-                opponentScore = opponentScore,
-                isWinner = isWinner,
-                isDraw = isDraw,
-                onExit = {
-                    ws?.disconnect()
-                    onNavigate(returnTo)
+            val rrDelta = if (isDraw) 0 else if (playerWon) 30 else -30
+
+            AlertDialog(
+                onDismissRequest = {},
+                containerColor = BgColor,
+                title = { Text("Partida finalizada", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                when {
+                                    isDraw -> "Empate"
+                                    playerWon -> "Has ganado"
+                                    else -> "Has perdido"
+                                },
+                                color = when {
+                                    isDraw -> Color(0xFFE5E7EB)
+                                    playerWon -> Color(0xFF4ADE80)
+                                    else -> Color(0xFFF87171)
+                                },
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 18.sp
+                            )
+                            Text(
+                                "${if (rrDelta >= 0) "+" else ""}$rrDelta RR",
+                                color = if (rrDelta >= 0) Color(0xFF4ADE80) else Color(0xFFF87171),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 15.sp
+                            )
+                        }
+                        Text("$myDisplayName: $myScore pts", color = Color.White, fontSize = 13.sp)
+                        Text("$opponentName: $opponentScore pts", color = Color.White, fontSize = 13.sp)
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            ws?.disconnect()
+                        onNavigate(returnTo)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                    ) {
+                        Text("Volver a amigos")
+                    }
                 }
             )
         }
@@ -324,107 +384,163 @@ fun GameBoard1v1Screen(
 }
 
 @Composable
-private fun GameCell(
+private fun ConnectionBadge(connectionState: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(
+                    when (connectionState) {
+                        "connected" -> Color(0xFF4ADE80)
+                        "waiting" -> Color(0xFFFACC15)
+                        "error" -> Color(0xFFF87171)
+                        else -> Color.Gray
+                    },
+                    CircleShape
+                )
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = when (connectionState) {
+                "connected" -> "Conectado"
+                "waiting" -> "Esperando..."
+                "error" -> "Error conexión"
+                "connecting" -> "Conectando..."
+                else -> connectionState
+            },
+            fontSize = 11.sp,
+            color = TextMutedColor
+        )
+    }
+}
+
+@Composable
+private fun PlayerPanel1v1(
+    modifier: Modifier = Modifier,
+    name: String,
+    rr: Int,
+    avatarUrl: String?,
+    pieceColor: Color,
+    pieceLabel: String,
+    score: Int,
+    isActive: Boolean
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = Color.Black.copy(alpha = 0.28f),
+        border = BorderStroke(1.dp, if (isActive) Color(0xFFFBBF24) else BorderColor)
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AvatarCircle(name = name, avatarUrl = avatarUrl)
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = name,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text("$rr RR", color = Color(0xFFFBBF24), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(pieceColor)
+                        .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                )
+                Text(pieceLabel, color = TextMutedColor, fontSize = 11.sp)
+                Spacer(modifier = Modifier.weight(1f))
+                Text("$score pts", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvatarCircle(name: String, avatarUrl: String?) {
+    Surface(
+        modifier = Modifier.size(36.dp),
+        shape = CircleShape,
+        color = Color.White.copy(alpha = 0.1f)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            val presetRes = AvatarPresets.drawableForId(avatarUrl)
+            when {
+                presetRes != null -> {
+                    Image(
+                        painter = painterResource(id = presetRes),
+                        contentDescription = "Avatar",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                !avatarUrl.isNullOrBlank() -> {
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = "Avatar",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                else -> {
+                    Text(
+                        text = name.firstOrNull()?.uppercase() ?: "?",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GameCell1v1(
     modifier: Modifier,
-    cellValue: Int?,
+    cellValue: String?,
     isValidMove: Boolean,
+    style: BoardPieceStyle1v1,
     onClick: () -> Unit
 ) {
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .border(0.5.dp, Color.Black.copy(0.2f))
+            .border(0.5.dp, Color.Black.copy(alpha = 0.2f))
             .then(if (isValidMove) Modifier.clickable { onClick() } else Modifier),
         contentAlignment = Alignment.Center
     ) {
         if (isValidMove) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize(0.35f)
+                    .fillMaxSize(0.34f)
                     .clip(CircleShape)
-                    .background(Color(0xFF4ADE80).copy(alpha = 0.4f))
+                    .background(Color.White.copy(alpha = 0.8f))
             )
         }
+
         if (cellValue != null) {
             val pieceColor = when (cellValue) {
-                0 -> Color.Black      // black
-                1 -> Color.White      // white
-                2 -> Color(0xFFB71C1C) // red (4-player)
-                3 -> Color(0xFF0D47A1) // blue (4-player)
+                "black" -> style.sideA
+                "white" -> style.sideB
                 else -> Color.Gray
             }
+
             Box(
                 modifier = Modifier
-                    .fillMaxSize(0.8f)
+                    .fillMaxSize(0.78f)
                     .clip(CircleShape)
                     .background(pieceColor)
-                    .border(1.dp, Color.White.copy(0.2f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
             )
         }
     }
-}
-
-@Composable
-private fun PlayerMiniCard(name: String, score: Int, colorName: String, isActive: Boolean) {
-    val pieceColor = when (colorName) {
-        "black" -> Color.Black
-        "white" -> Color.White
-        else -> Color.Gray
-    }
-    Surface(
-        color = if (isActive) Color.White.copy(0.1f) else Color.Transparent,
-        shape = RoundedCornerShape(12.dp),
-        border = if (isActive) BorderStroke(1.dp, Color(0xFFFBBF24)) else null
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(8.dp).width(80.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(pieceColor)
-                    .border(1.dp, Color.White.copy(0.3f), CircleShape)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Text("$score pts", color = Color(0xFFFBBF24), fontWeight = FontWeight.Black, fontSize = 14.sp)
-        }
-    }
-}
-
-@Composable
-private fun GameOverDialog(myScore: Int, opponentScore: Int, isWinner: Boolean, isDraw: Boolean, onExit: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = { },
-        containerColor = BgColor,
-        title = { Text("Partida Finalizada", color = Color.White, fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                Text("Tú: $myScore pts", color = Color.White)
-                Text("Rival: $opponentScore pts", color = Color.White)
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    when {
-                        isDraw -> "EMPATE"
-                        isWinner -> "¡VICTORIA!"
-                        else -> "DERROTA"
-                    },
-                    color = when {
-                        isDraw -> Color.Gray
-                        isWinner -> Color(0xFF4ADE80)
-                        else -> Color(0xFFF87171)
-                    },
-                    fontWeight = FontWeight.Black,
-                    fontSize = 18.sp
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = onExit, colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)) {
-                Text("Volver al Menú")
-            }
-        }
-    )
 }

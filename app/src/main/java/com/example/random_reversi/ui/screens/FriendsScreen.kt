@@ -155,7 +155,7 @@ private fun FriendRow(
                     onClick = onInvite
                 )
                 SmallActionButton(text = "Chat", color = Color(0xFF38BDF8), onClick = onChat, badge = friend.unread_count ?: 0)
-                SmallActionButton(text = "X", color = Color(0xFFF87171), onClick = onRemove)
+                SmallActionButton(text = "Eliminar", color = Color(0xFFF87171), onClick = onRemove)
             }
         }
     }
@@ -450,7 +450,7 @@ private fun GroupInviteDialog(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(friend.name, color = TextColor, fontWeight = FontWeight.Bold)
-                                    Text("${friend.rr} RR", color = TextMutedColor, fontSize = 12.sp)
+                                    Text("${friend.rr} RR", color = Color(0xFFFBBF24), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                                 Text(if (isSelected) "Seleccionado" else "", color = PrimaryColor, fontSize = 11.sp)
                             }
@@ -1031,5 +1031,4 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
         }
     )
 }
-
 

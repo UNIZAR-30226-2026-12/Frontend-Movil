@@ -3,8 +3,9 @@ package com.example.random_reversi.data.remote
 import com.example.random_reversi.BuildConfig
 import com.example.random_reversi.data.SessionManager
 import com.google.gson.Gson
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,12 +17,14 @@ import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
 
 data class GameState(
-    val board: List<List<Int?>> = emptyList(),
+    val board: List<List<String?>> = emptyList(),
     val current_player: String? = null,
     val valid_moves: List<List<Int>> = emptyList(),
     val game_over: Boolean = false,
     val scores: Map<String, Int> = emptyMap(),
-    val winner: String? = null
+    val winner: String? = null,
+    val abandoned_pieces: List<String> = emptyList(),
+    val username_by_piece: Map<String, String> = emptyMap()
 )
 
 data class WsMessage(
@@ -52,6 +55,59 @@ class GameWebSocket(
 
     private val _roomStatus = MutableStateFlow("waiting")
     val roomStatus: StateFlow<String> = _roomStatus.asStateFlow()
+
+    private fun JsonElement?.asStringOrNull(): String? {
+        if (this == null || isJsonNull || !isJsonPrimitive || !asJsonPrimitive.isString) return null
+        return asString
+    }
+
+    private fun JsonElement?.asIntOrNull(): Int? {
+        if (this == null || isJsonNull || !isJsonPrimitive || !asJsonPrimitive.isNumber) return null
+        return try {
+            asInt
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun JsonElement?.asBooleanOr(default: Boolean): Boolean {
+        if (this == null || isJsonNull || !isJsonPrimitive || !asJsonPrimitive.isBoolean) return default
+        return asBoolean
+    }
+
+    private fun JsonObject.arrayOrEmpty(key: String): JsonArray? {
+        if (!has(key) || get(key).isJsonNull || !get(key).isJsonArray) return null
+        return getAsJsonArray(key)
+    }
+
+    private fun JsonObject.objectOrNull(key: String): JsonObject? {
+        if (!has(key) || get(key).isJsonNull || !get(key).isJsonObject) return null
+        return getAsJsonObject(key)
+    }
+
+    private fun normalizePieceCell(raw: JsonElement): String? {
+        if (raw.isJsonNull) return null
+        val primitive = raw.asJsonPrimitive
+        return when {
+            primitive.isString -> {
+                when (val value = primitive.asString.lowercase()) {
+                    "black", "white", "red", "blue" -> value
+                    "null", "none", "empty", "" -> null
+                    else -> null
+                }
+            }
+            primitive.isNumber -> {
+                when (primitive.asInt) {
+                    0 -> "black"
+                    1 -> "white"
+                    2 -> "red"
+                    3 -> "blue"
+                    else -> null
+                }
+            }
+            else -> null
+        }
+    }
 
     fun connect() {
         val token = SessionManager.getToken() ?: return
@@ -118,33 +174,61 @@ class GameWebSocket(
             "game_state_update" -> {
                 msg.payload?.let { payload ->
                     try {
-                        val board = if (payload.has("board")) {
-                            val boardArray = payload.getAsJsonArray("board")
+
+                        val board = payload.arrayOrEmpty("board")?.let { boardArray ->
                             boardArray.map { row ->
                                 row.asJsonArray.map { cell ->
-                                    if (cell.isJsonNull) null else cell.asInt
+                                    normalizePieceCell(cell)
                                 }
                             }
-                        } else emptyList()
+                        } ?: emptyList()
 
-                        val validMoves = if (payload.has("valid_moves")) {
-                            payload.getAsJsonArray("valid_moves").map { move ->
-                                move.asJsonArray.map { it.asInt }
+                        val validMoves = payload.arrayOrEmpty("valid_moves")?.mapNotNull { move ->
+                                when {
+                                    move.isJsonArray -> {
+                                        val arr = move.asJsonArray
+                                        if (arr.size() >= 2) listOf(arr[0].asInt, arr[1].asInt) else null
+                                    }
+                                    move.isJsonObject -> {
+                                        val obj = move.asJsonObject
+                                        if (obj.has("row") && obj.has("col")) listOf(obj.get("row").asInt, obj.get("col").asInt) else null
+                                    }
+                                    else -> null
+                                }
                             }
-                        } else emptyList()
+                            ?: emptyList()
 
-                        val scores = if (payload.has("scores")) {
-                            val scoresObj = payload.getAsJsonObject("scores")
-                            scoresObj.entrySet().associate { it.key to it.value.asInt }
-                        } else emptyMap()
+                        val scoreObj = payload.objectOrNull("score") ?: payload.objectOrNull("scores")
+                        val scores = scoreObj?.entrySet()
+                            ?.mapNotNull { entry ->
+                                val value = entry.value.asIntOrNull() ?: return@mapNotNull null
+                                entry.key to value
+                            }
+                            ?.toMap()
+                            ?: emptyMap()
+
+                        val abandonedPieces = payload.arrayOrEmpty("abandoned_pieces")
+                            ?.mapNotNull { piece -> piece.asStringOrNull()?.lowercase() }
+                            ?: emptyList()
+
+                        val usernameByPiece = payload.objectOrNull("username_by_piece")
+                            ?.entrySet()
+                            ?.mapNotNull { entry ->
+                                val username = entry.value.asStringOrNull() ?: return@mapNotNull null
+                                entry.key to username
+                            }
+                            ?.toMap()
+                            ?: emptyMap()
 
                         _gameState.value = GameState(
                             board = board,
-                            current_player = payload.get("current_player")?.asString,
+                            current_player = payload.get("current_player").asStringOrNull()?.lowercase(),
                             valid_moves = validMoves,
-                            game_over = payload.get("game_over")?.asBoolean ?: false,
+                            game_over = payload.get("game_over").asBooleanOr(false),
                             scores = scores,
-                            winner = payload.get("winner")?.asString
+                            winner = payload.get("winner").asStringOrNull()?.lowercase(),
+                            abandoned_pieces = abandonedPieces,
+                            username_by_piece = usernameByPiece
                         )
                     } catch (_: Exception) {}
                 }

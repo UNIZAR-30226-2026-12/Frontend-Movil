@@ -198,6 +198,7 @@ fun WaitingRoomScreen(
     var players by remember { mutableStateOf<List<LobbyPlayerInfo>>(emptyList()) }
     var lobbyStatus by remember { mutableStateOf("waiting") }
     var isLocalReady by remember { mutableStateOf(false) }
+    var isUpdatingReady by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var inlineToast by remember { mutableStateOf<String?>(null) }
     var forcedExitTriggered by remember { mutableStateOf(false) }
@@ -269,6 +270,9 @@ fun WaitingRoomScreen(
             lobbyStatus = wsRoomStatus
             mappedPlayers.find { it.username == localPlayerName }?.let { me ->
                 isLocalReady = me.is_ready
+                if (isUpdatingReady) {
+                    isUpdatingReady = false
+                }
             }
             loadMissingHistories(mappedPlayers)
             errorMsg = null
@@ -287,10 +291,16 @@ fun WaitingRoomScreen(
         }
     }
 
-    LaunchedEffect(gameId, localPlayerName) {
+    LaunchedEffect(gameId, localPlayerName, wsConnectionState) {
         if (gameId <= 0) return@LaunchedEffect
 
         while (isActive) {
+            val wsIsReady = wsConnectionState == "connected"
+            if (wsIsReady) {
+                delay(1200)
+                continue
+            }
+
             when (val result = GamesRepository.getLobbyState(gameId)) {
                 is UserResult.Success -> {
                     val previousPlayers = players
@@ -300,7 +310,12 @@ fun WaitingRoomScreen(
                     lobbyStatus = result.data.status
 
                     val me = nextPlayers.find { it.username == localPlayerName }
-                    if (me != null) isLocalReady = me.is_ready
+                    if (me != null) {
+                        isLocalReady = me.is_ready
+                        if (isUpdatingReady) {
+                            isUpdatingReady = false
+                        }
+                    }
 
                     loadMissingHistories(nextPlayers)
 
@@ -354,7 +369,7 @@ fun WaitingRoomScreen(
                     }
                 }
             }
-            delay(2000)
+            delay(1200)
         }
     }
 
@@ -515,15 +530,48 @@ fun WaitingRoomScreen(
                     onClick = {
                         if (gameId > 0) {
                             scope.launch {
+                                if (isUpdatingReady) return@launch
                                 val nextReady = !isLocalReady
+                                isUpdatingReady = true
+                                val wsIsReady = wsConnectionState == "connected"
+
+                                if (wsIsReady) {
+                                    // Igual que en web: si hay WS, enviamos sólo por WS.
+                                    ws?.sendReady(nextReady)
+                                    launch {
+                                        delay(2200)
+                                        if (isUpdatingReady) {
+                                            isUpdatingReady = false
+                                        }
+                                    }
+                                    return@launch
+                                }
+
+                                // Fallback cuando no hay WS: REST y refresh del estado.
                                 when (val result = GamesRepository.setReady(gameId, nextReady)) {
-                                    is UserResult.Success -> isLocalReady = nextReady
-                                    is UserResult.Error -> inlineToast = result.message
+                                    is UserResult.Success -> {
+                                        when (val refreshed = GamesRepository.getLobbyState(gameId)) {
+                                            is UserResult.Success -> {
+                                                players = refreshed.data.players
+                                                lobbyStatus = refreshed.data.status
+                                                val me = refreshed.data.players.find { it.username == localPlayerName }
+                                                if (me != null) isLocalReady = me.is_ready
+                                            }
+                                            is UserResult.Error -> {
+                                                inlineToast = refreshed.message
+                                            }
+                                        }
+                                        isUpdatingReady = false
+                                    }
+                                    is UserResult.Error -> {
+                                        inlineToast = result.message
+                                        isUpdatingReady = false
+                                    }
                                 }
                             }
                         }
                     },
-                    enabled = isFull && gameId > 0,
+                    enabled = isFull && gameId > 0 && !isUpdatingReady,
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp),
@@ -533,7 +581,15 @@ fun WaitingRoomScreen(
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(if (isLocalReady) "Listo" else "Estoy Listo", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(
+                        when {
+                            isUpdatingReady -> "Actualizando..."
+                            isLocalReady -> "Listo"
+                            else -> "Estoy Listo"
+                        },
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
