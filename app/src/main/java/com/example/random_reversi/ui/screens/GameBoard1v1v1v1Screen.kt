@@ -88,11 +88,14 @@ fun GameBoard1v1v1v1Screen(
     var quadStyle by remember { mutableStateOf(PIECE_STYLES_4P.first()) }
     var selectedQuadrant by remember { mutableStateOf<Int?>(null) }
     var showLeaveConfirm by remember { mutableStateOf(false) }
+    var showPauseConfirm by remember { mutableStateOf(false) }
     var abandonNotice by remember { mutableStateOf<String?>(null) }
     var showChat by remember { mutableStateOf(false) }
     var unreadChatCount by remember { mutableStateOf(0) }
     var processedChatCount by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+    var previousPausedPieces by remember { mutableStateOf(emptySet<String>()) }
+    var reconnectedPieces by remember { mutableStateOf(emptySet<String>()) }
 
     val players = remember(roomPlayersRaw, myUsername, myElo, myAvatar) {
         val parsed = roomPlayersRaw.mapIndexedNotNull { index, raw ->
@@ -136,8 +139,12 @@ fun GameBoard1v1v1v1Screen(
     val isMyTurn = gameState.current_player == effectiveMyPiece
     val gameOver = gameState.game_over
     val abandonedPieces = gameState.abandoned_pieces
+    val pausedPieces = gameState.paused_pieces
     val localIsAbandoned = effectiveMyPiece != null && abandonedPieces.contains(effectiveMyPiece)
+    val localIsPaused = effectiveMyPiece != null && pausedPieces.contains(effectiveMyPiece)
     val canPlayThisTurn = isMyTurn && !gameOver && !localIsAbandoned
+    val waitingForPausedPlayer = gameState.current_player != null && pausedPieces.contains(gameState.current_player)
+    val hasOtherPausedPlayer = pausedPieces.any { it != effectiveMyPiece }
 
     val arenaTheme = remember(myPlayer.rr) { getArenaFromElo4p(myPlayer.rr) }
 
@@ -170,6 +177,21 @@ fun GameBoard1v1v1v1Screen(
             unreadChatCount += newMessages.count { (sender, _) -> sender != myUsername }
             processedChatCount = chatMessages.size
         }
+    }
+
+    LaunchedEffect(pausedPieces.joinToString("|")) {
+        val currentPaused = pausedPieces.toSet()
+        val resumedPieces = previousPausedPieces - currentPaused
+        if (resumedPieces.isNotEmpty()) {
+            reconnectedPieces = reconnectedPieces + resumedPieces
+            resumedPieces.forEach { resumed ->
+                scope.launch {
+                    delay(2200)
+                    reconnectedPieces = reconnectedPieces - resumed
+                }
+            }
+        }
+        previousPausedPieces = currentPaused
     }
 
     DisposableEffect(Unit) {
@@ -216,17 +238,34 @@ fun GameBoard1v1v1v1Screen(
                     onClick = { showChat = true }
                 )
 
-                OutlinedButton(
-                    onClick = { showLeaveConfirm = true },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFFFCA5A5),
-                        containerColor = Color(0xFFF87171).copy(alpha = 0.15f)
-                    ),
-                    border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.35f)),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(36.dp)
-                ) {
-                    Text("Abandonar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (returnTo == "friends" && !gameOver) {
+                        OutlinedButton(
+                            onClick = { showPauseConfirm = true },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFE5E7EB),
+                                containerColor = Color(0xFF64748B).copy(alpha = 0.2f)
+                            ),
+                            border = BorderStroke(1.dp, Color(0xFF94A3B8).copy(alpha = 0.45f)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("Pausar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { showLeaveConfirm = true },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFFCA5A5),
+                            containerColor = Color(0xFFF87171).copy(alpha = 0.15f)
+                        ),
+                        border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.35f)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("Abandonar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
                 }
             }
 
@@ -244,6 +283,8 @@ fun GameBoard1v1v1v1Screen(
                 Text(
                     text = when {
                         gameOver -> if (gameState.winner == effectiveMyPiece) "Has ganado" else "Partida finalizada"
+                        waitingForPausedPlayer -> "Partida pausada: Espera a que vuelva ${nameForPiece(gameState.current_player, gameState.username_by_piece, playerByPiece)}"
+                        localIsPaused -> "Has pausado la partida"
                         canPlayThisTurn -> "Tu turno"
                         else -> "Turno de ${nameForPiece(gameState.current_player, gameState.username_by_piece, playerByPiece)}"
                     },
@@ -272,7 +313,9 @@ fun GameBoard1v1v1v1Screen(
                         score = gameState.scores["black"] ?: 0,
                         pieceColor = quadStyle.p1,
                         isActive = gameState.current_player == "black" && !gameOver,
-                        abandoned = abandonedPieces.contains("black")
+                        abandoned = abandonedPieces.contains("black"),
+                        paused = pausedPieces.contains("black"),
+                        reconnected = reconnectedPieces.contains("black")
                     )
                     PlayerPanel4p(
                         modifier = Modifier.weight(1f),
@@ -283,7 +326,9 @@ fun GameBoard1v1v1v1Screen(
                         score = gameState.scores["white"] ?: 0,
                         pieceColor = quadStyle.p2,
                         isActive = gameState.current_player == "white" && !gameOver,
-                        abandoned = abandonedPieces.contains("white")
+                        abandoned = abandonedPieces.contains("white"),
+                        paused = pausedPieces.contains("white"),
+                        reconnected = reconnectedPieces.contains("white")
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -296,7 +341,9 @@ fun GameBoard1v1v1v1Screen(
                         score = gameState.scores["red"] ?: 0,
                         pieceColor = quadStyle.p3,
                         isActive = gameState.current_player == "red" && !gameOver,
-                        abandoned = abandonedPieces.contains("red")
+                        abandoned = abandonedPieces.contains("red"),
+                        paused = pausedPieces.contains("red"),
+                        reconnected = reconnectedPieces.contains("red")
                     )
                     PlayerPanel4p(
                         modifier = Modifier.weight(1f),
@@ -307,7 +354,9 @@ fun GameBoard1v1v1v1Screen(
                         score = gameState.scores["blue"] ?: 0,
                         pieceColor = quadStyle.p4,
                         isActive = gameState.current_player == "blue" && !gameOver,
-                        abandoned = abandonedPieces.contains("blue")
+                        abandoned = abandonedPieces.contains("blue"),
+                        paused = pausedPieces.contains("blue"),
+                        reconnected = reconnectedPieces.contains("blue")
                     )
                 }
             }
@@ -431,7 +480,10 @@ fun GameBoard1v1v1v1Screen(
                 title = { Text("Abandonar partida", color = Color.White, fontWeight = FontWeight.Bold) },
                 text = {
                     Text(
-                        "Si abandonas la partida, se te registrará automáticamente como 4º puesto.",
+                        if (returnTo == "friends" && hasOtherPausedPlayer && !localIsPaused)
+                            "Como hay un jugador en pausa, si abandonas ahora no perderás RR y la partida quedará invalidada."
+                        else
+                            "Si abandonas la partida, se te registrará automáticamente como 4º puesto.",
                         color = TextMutedColor
                     )
                 },
@@ -454,6 +506,38 @@ fun GameBoard1v1v1v1Screen(
                 dismissButton = {
                     TextButton(onClick = { showLeaveConfirm = false }) {
                         Text("Seguir jugando", color = TextMutedColor)
+                    }
+                }
+            )
+        }
+
+        if (showPauseConfirm) {
+            AlertDialog(
+                onDismissRequest = { showPauseConfirm = false },
+                containerColor = BgColor,
+                title = { Text("Pausar partida", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Text(
+                        "Podrás reanudar esta partida después desde la pestaña de amigos. Mientras tanto, los rivales quedarán esperando a que vuelvas.",
+                        color = TextMutedColor
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            ws?.sendPause()
+                            showPauseConfirm = false
+                            ws?.disconnect()
+                            onNavigate("friends")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF64748B))
+                    ) {
+                        Text("Pausar y salir")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPauseConfirm = false }) {
+                        Text("Cancelar", color = TextMutedColor)
                     }
                 }
             )
@@ -564,7 +648,9 @@ private fun PlayerPanel4p(
     score: Int,
     pieceColor: Color,
     isActive: Boolean,
-    abandoned: Boolean
+    abandoned: Boolean,
+    paused: Boolean,
+    reconnected: Boolean
 ) {
     val name = player?.username ?: fallbackName
     val avatar = avatarOverride ?: player?.avatarUrl
@@ -573,11 +659,18 @@ private fun PlayerPanel4p(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = if (abandoned) Color(0xFF7F1D1D).copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.28f),
+        color = when {
+            abandoned -> Color(0xFF7F1D1D).copy(alpha = 0.35f)
+            paused -> Color(0xFF334155).copy(alpha = 0.35f)
+            reconnected -> Color(0xFF14532D).copy(alpha = 0.4f)
+            else -> Color.Black.copy(alpha = 0.28f)
+        },
         border = BorderStroke(
             1.dp,
             when {
                 abandoned -> Color(0xFFEF4444)
+                paused -> Color(0xFF94A3B8)
+                reconnected -> Color(0xFF4ADE80)
                 isActive -> Color(0xFFFBBF24)
                 else -> BorderColor
             }
@@ -619,6 +712,22 @@ private fun PlayerPanel4p(
                 Text(
                     "Ha abandonado",
                     color = Color(0xFFFCA5A5),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)
+                )
+            } else if (paused) {
+                Text(
+                    "Ha pausado",
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)
+                )
+            } else if (reconnected) {
+                Text(
+                    "Se ha reconectado",
+                    color = Color(0xFF86EFAC),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)

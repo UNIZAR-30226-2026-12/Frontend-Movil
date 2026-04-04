@@ -24,6 +24,8 @@ data class GameState(
     val scores: Map<String, Int> = emptyMap(),
     val winner: String? = null,
     val abandoned_pieces: List<String> = emptyList(),
+    val paused_pieces: List<String> = emptyList(),
+    val paused_usernames: List<String> = emptyList(),
     val username_by_piece: Map<String, String> = emptyMap()
 )
 
@@ -211,6 +213,14 @@ class GameWebSocket(
                             ?.mapNotNull { piece -> piece.asStringOrNull()?.lowercase() }
                             ?: emptyList()
 
+                        val pausedPieces = payload.arrayOrEmpty("paused_pieces")
+                            ?.mapNotNull { piece -> piece.asStringOrNull()?.lowercase() }
+                            ?: emptyList()
+
+                        val pausedUsernames = payload.arrayOrEmpty("paused_usernames")
+                            ?.mapNotNull { username -> username.asStringOrNull() }
+                            ?: emptyList()
+
                         val usernameByPiece = payload.objectOrNull("username_by_piece")
                             ?.entrySet()
                             ?.mapNotNull { entry ->
@@ -228,6 +238,8 @@ class GameWebSocket(
                             scores = scores,
                             winner = payload.get("winner").asStringOrNull()?.lowercase(),
                             abandoned_pieces = abandonedPieces,
+                            paused_pieces = pausedPieces,
+                            paused_usernames = pausedUsernames,
                             username_by_piece = usernameByPiece
                         )
                     } catch (_: Exception) {}
@@ -287,6 +299,11 @@ class GameWebSocket(
 
     fun sendSurrender() {
         val json = gson.toJson(mapOf("action" to "surrender"))
+        webSocket?.send(json)
+    }
+
+    fun sendPause() {
+        val json = gson.toJson(mapOf("action" to "pause"))
         webSocket?.send(json)
     }
 

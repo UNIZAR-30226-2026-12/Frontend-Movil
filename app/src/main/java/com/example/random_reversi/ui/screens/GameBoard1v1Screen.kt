@@ -34,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,8 @@ import com.example.random_reversi.ui.theme.PrimaryColor
 import com.example.random_reversi.ui.theme.SurfaceColor
 import com.example.random_reversi.ui.theme.TextMutedColor
 import com.example.random_reversi.utils.AvatarPresets
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val BOARD_SIZE = 8
 
@@ -81,9 +84,13 @@ fun GameBoard1v1Screen(
     var myAvatar by remember { mutableStateOf<String?>(null) }
     var duelStyle by remember { mutableStateOf(PIECE_STYLES_1V1.first()) }
     var showSurrenderConfirm by remember { mutableStateOf(false) }
+    var showPauseConfirm by remember { mutableStateOf(false) }
     var showChat by remember { mutableStateOf(false) }
     var unreadChatCount by remember { mutableStateOf(0) }
     var processedChatCount by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+    var previousPausedPieces by remember { mutableStateOf(emptySet<String>()) }
+    var reconnectedPieces by remember { mutableStateOf(emptySet<String>()) }
 
     val parsedPlayers = remember(roomPlayersRaw) {
         roomPlayersRaw.mapNotNull { raw ->
@@ -125,6 +132,8 @@ fun GameBoard1v1Screen(
 
     val isMyTurn = gameState.current_player == effectiveMyPiece
     val gameOver = gameState.game_over
+    val pausedPieces = gameState.paused_pieces
+    val localIsPaused = effectiveMyPiece != null && pausedPieces.contains(effectiveMyPiece)
 
     val myScore = if (effectiveMyPiece != null) gameState.scores[effectiveMyPiece] ?: 0 else 0
     val opponentColor = when (effectiveMyPiece) {
@@ -133,6 +142,13 @@ fun GameBoard1v1Screen(
         else -> "white"
     }
     val opponentScore = gameState.scores[opponentColor] ?: 0
+    val opponentIsPaused = pausedPieces.contains(opponentColor)
+    val waitingForPausedPlayer = gameState.current_player != null && pausedPieces.contains(gameState.current_player)
+    val hasOtherPausedPlayer = pausedPieces.any { it != effectiveMyPiece }
+    val waitingPausedPlayerName = gameState.username_by_piece[gameState.current_player]
+        ?: if (gameState.current_player == effectiveMyPiece) myDisplayName else opponentName
+    val localIsReconnected = effectiveMyPiece != null && reconnectedPieces.contains(effectiveMyPiece)
+    val opponentIsReconnected = reconnectedPieces.contains(opponentColor)
 
     val myPieceName = if (effectiveMyPiece == "black") duelStyle.sideAName else duelStyle.sideBName
     val opponentPieceName = if (effectiveMyPiece == "black") duelStyle.sideBName else duelStyle.sideAName
@@ -172,6 +188,21 @@ fun GameBoard1v1Screen(
         }
     }
 
+    LaunchedEffect(pausedPieces.joinToString("|")) {
+        val currentPaused = pausedPieces.toSet()
+        val resumedPieces = previousPausedPieces - currentPaused
+        if (resumedPieces.isNotEmpty()) {
+            reconnectedPieces = reconnectedPieces + resumedPieces
+            resumedPieces.forEach { resumed ->
+                scope.launch {
+                    delay(2200)
+                    reconnectedPieces = reconnectedPieces - resumed
+                }
+            }
+        }
+        previousPausedPieces = currentPaused
+    }
+
     DisposableEffect(Unit) {
         onDispose { ws?.disconnect() }
     }
@@ -201,17 +232,34 @@ fun GameBoard1v1Screen(
                     onClick = { showChat = true }
                 )
 
-                OutlinedButton(
-                    onClick = { showSurrenderConfirm = true },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFFFCA5A5),
-                        containerColor = Color(0xFFF87171).copy(alpha = 0.15f)
-                    ),
-                    border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.35f)),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(36.dp)
-                ) {
-                    Text("Abandonar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (returnTo == "friends" && !gameOver) {
+                        OutlinedButton(
+                            onClick = { showPauseConfirm = true },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFE5E7EB),
+                                containerColor = Color(0xFF64748B).copy(alpha = 0.2f)
+                            ),
+                            border = BorderStroke(1.dp, Color(0xFF94A3B8).copy(alpha = 0.45f)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("Pausar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { showSurrenderConfirm = true },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFFCA5A5),
+                            containerColor = Color(0xFFF87171).copy(alpha = 0.15f)
+                        ),
+                        border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.35f)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("Abandonar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
                 }
             }
 
@@ -233,6 +281,8 @@ fun GameBoard1v1Screen(
                             gameState.winner == effectiveMyPiece -> "Has ganado"
                             else -> "Has perdido"
                         }
+                        waitingForPausedPlayer -> "Partida pausada: Espera a que vuelva $waitingPausedPlayerName"
+                        localIsPaused -> "Partida pausada"
                         isMyTurn -> "Tu turno"
                         else -> "Turno del rival"
                     },
@@ -257,7 +307,9 @@ fun GameBoard1v1Screen(
                     pieceColor = if (effectiveMyPiece == "black") duelStyle.sideA else duelStyle.sideB,
                     pieceLabel = myPieceName,
                     score = myScore,
-                    isActive = isMyTurn && !gameOver
+                    isActive = isMyTurn && !gameOver,
+                    paused = localIsPaused,
+                    reconnected = localIsReconnected
                 )
 
                 PlayerPanel1v1(
@@ -268,7 +320,9 @@ fun GameBoard1v1Screen(
                     pieceColor = if (effectiveMyPiece == "black") duelStyle.sideB else duelStyle.sideA,
                     pieceLabel = opponentPieceName,
                     score = opponentScore,
-                    isActive = !isMyTurn && !gameOver
+                    isActive = !isMyTurn && !gameOver,
+                    paused = opponentIsPaused,
+                    reconnected = opponentIsReconnected
                 )
             }
 
@@ -324,7 +378,10 @@ fun GameBoard1v1Screen(
                 title = { Text("Abandonar partida", color = Color.White, fontWeight = FontWeight.Bold) },
                 text = {
                     Text(
-                        "Si abandonas esta partida en curso, se contará como una derrota en tu historial y perderás puntos RR.",
+                        if (returnTo == "friends" && hasOtherPausedPlayer && !localIsPaused)
+                            "Como la partida está pausada por el otro jugador, si abandonas ahora no perderás RR y la partida quedará invalidada."
+                        else
+                            "Si abandonas esta partida en curso, se contará como una derrota en tu historial y perderás puntos RR.",
                         color = TextMutedColor
                     )
                 },
@@ -344,6 +401,38 @@ fun GameBoard1v1Screen(
                 dismissButton = {
                     TextButton(onClick = { showSurrenderConfirm = false }) {
                         Text("Seguir jugando", color = TextMutedColor)
+                    }
+                }
+            )
+        }
+
+        if (showPauseConfirm) {
+            AlertDialog(
+                onDismissRequest = { showPauseConfirm = false },
+                containerColor = BgColor,
+                title = { Text("Pausar partida", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Text(
+                        "Podrás reanudar esta partida después desde la pestaña de amigos. Mientras tanto, el rival quedará esperando a que vuelvas.",
+                        color = TextMutedColor
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            ws?.sendPause()
+                            showPauseConfirm = false
+                            ws?.disconnect()
+                            onNavigate("friends")
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF64748B))
+                    ) {
+                        Text("Pausar y salir")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPauseConfirm = false }) {
+                        Text("Cancelar", color = TextMutedColor)
                     }
                 }
             )
@@ -455,42 +544,73 @@ private fun PlayerPanel1v1(
     pieceColor: Color,
     pieceLabel: String,
     score: Int,
-    isActive: Boolean
+    isActive: Boolean,
+    paused: Boolean,
+    reconnected: Boolean
 ) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = Color.Black.copy(alpha = 0.28f),
-        border = BorderStroke(1.dp, if (isActive) Color(0xFFFBBF24) else BorderColor)
+        color = when {
+            paused -> Color(0xFF334155).copy(alpha = 0.35f)
+            reconnected -> Color(0xFF14532D).copy(alpha = 0.4f)
+            else -> Color.Black.copy(alpha = 0.28f)
+        },
+        border = BorderStroke(1.dp, when {
+            paused -> Color(0xFF94A3B8)
+            reconnected -> Color(0xFF4ADE80)
+            isActive -> Color(0xFFFBBF24)
+            else -> BorderColor
+        })
     ) {
-        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AvatarCircle(name = name, avatarUrl = avatarUrl)
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = name,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AvatarCircle(name = name, avatarUrl = avatarUrl)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = name,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text("$rr RR", color = Color(0xFFFBBF24), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(pieceColor)
+                            .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                     )
-                    Text("$rr RR", color = Color(0xFFFBBF24), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(pieceLabel, color = TextMutedColor, fontSize = 11.sp)
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text("$score pts", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
                 }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clip(CircleShape)
-                        .background(pieceColor)
-                        .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+            if (paused) {
+                Text(
+                    "Ha pausado",
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)
                 )
-                Text(pieceLabel, color = TextMutedColor, fontSize = 11.sp)
-                Spacer(modifier = Modifier.weight(1f))
-                Text("$score pts", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+            } else if (reconnected) {
+                Text(
+                    "Se ha reconectado",
+                    color = Color(0xFF86EFAC),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)
+                )
             }
         }
     }

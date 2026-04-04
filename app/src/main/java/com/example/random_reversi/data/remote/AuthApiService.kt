@@ -169,12 +169,26 @@ data class GameInviteInfo(
     val gameMode: String?
 )
 
+data class PausedGameInfo(
+    @SerializedName(value = "game_id", alternate = ["lobby_id"])
+    val game_id: Int,
+    @SerializedName(value = "mode", alternate = ["gameMode", "game_mode"])
+    val mode: String,
+    val participants: List<String> = emptyList(),
+    @SerializedName(value = "paused_by", alternate = ["pausedBy"])
+    val paused_by: List<String> = emptyList(),
+    @SerializedName(value = "active_players", alternate = ["activePlayers"])
+    val active_players: List<String> = emptyList()
+)
+
 data class SocialPanelResponse(
     val friends: List<FriendInfo>,
     @SerializedName(value = "requests", alternate = ["pending_requests"])
     val requests: List<FriendInfo>,
     @SerializedName(value = "gameRequests", alternate = ["game_invitations"])
-    val gameRequests: List<GameInviteInfo>
+    val gameRequests: List<GameInviteInfo>,
+    @SerializedName(value = "pausedGames", alternate = ["paused_games"])
+    val pausedGames: List<PausedGameInfo> = emptyList()
 )
 
 data class FriendRequestBody(
@@ -269,6 +283,11 @@ data class LobbyStateResponse(
 
 data class ReadyRequest(
     val ready: Boolean
+)
+
+data class LobbyLeaveResponse(
+    val status: String? = null,
+    val message: String? = null
 )
 
 // ── Ranking Models ──
@@ -408,7 +427,7 @@ interface AuthApiService {
     ): Response<MessageResponse>
 
     @POST("api/games/{game_id}/leave")
-    suspend fun leaveLobby(@Path("game_id") gameId: Int): Response<MessageResponse>
+    suspend fun leaveLobby(@Path("game_id") gameId: Int): Response<LobbyLeaveResponse>
 
     // ── Ranking ──
 

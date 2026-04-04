@@ -53,6 +53,7 @@ import com.example.random_reversi.data.UserResult
 import com.example.random_reversi.data.remote.ChatMessage
 import com.example.random_reversi.data.remote.FriendInfo
 import com.example.random_reversi.data.remote.GameInviteInfo
+import com.example.random_reversi.data.remote.PausedGameInfo
 import com.example.random_reversi.ui.components.GameModeModal
 import com.example.random_reversi.ui.navigation.NavigationMessages
 import com.example.random_reversi.ui.theme.BgColor
@@ -232,6 +233,42 @@ private fun InviteRow(invite: GameInviteInfo, onAccept: () -> Unit, onReject: ()
             SmallActionButton(text = "OK", color = Color(0xFF4ADE80), onClick = onAccept)
             Spacer(modifier = Modifier.width(6.dp))
             SmallActionButton(text = "X", color = Color(0xFFF87171), onClick = onReject)
+        }
+    }
+}
+
+@Composable
+private fun PausedGameRow(
+    pausedGame: PausedGameInfo,
+    onResume: () -> Unit,
+    onAbandon: () -> Unit
+) {
+    val modeLabel = normalizeMode(pausedGame.mode)
+    val localUsername = pausedGame.paused_by.firstOrNull()
+    val others = pausedGame.active_players.filter { !localUsername.isNullOrBlank() && it != localUsername }
+    val waitingText = when {
+        others.isEmpty() -> "No hay jugadores activos"
+        else -> "Te están esperando"
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = SurfaceLightColor,
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, BorderColor)
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Partida pausada", color = TextColor, fontWeight = FontWeight.Bold)
+                Text("$modeLabel  •  $waitingText", color = TextMutedColor, fontSize = 12.sp)
+            }
+
+            SmallActionButton(text = "Reanudar", color = Color(0xFF4ADE80), onClick = onResume)
+            Spacer(modifier = Modifier.width(6.dp))
+            SmallActionButton(text = "Abandonar", color = Color(0xFFF87171), onClick = onAbandon)
         }
     }
 }
@@ -614,6 +651,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
     var friends by remember { mutableStateOf<List<FriendInfo>>(emptyList()) }
     var requests by remember { mutableStateOf<List<FriendInfo>>(emptyList()) }
     var invites by remember { mutableStateOf<List<GameInviteInfo>>(emptyList()) }
+    var pausedGames by remember { mutableStateOf<List<PausedGameInfo>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
 
     var showAddDialog by remember { mutableStateOf(false) }
@@ -656,6 +694,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                     friends = result.data.friends
                     requests = result.data.requests
                     invites = result.data.gameRequests
+                    pausedGames = result.data.pausedGames
                     val currentIds = result.data.gameRequests.map { it.lobby_id }.toSet()
                     val newInvites = result.data.gameRequests.filter { !seenInviteIds.contains(it.lobby_id) }
                     if (hasLoadedPanel && newInvites.isNotEmpty()) {
@@ -880,6 +919,40 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                SectionCard("Partidas pausadas (${pausedGames.size})") {
+                    if (pausedGames.isEmpty()) {
+                        EmptyState("No tienes partidas pausadas activas.")
+                    } else {
+                        pausedGames.forEach { pausedGame ->
+                            PausedGameRow(
+                                pausedGame = pausedGame,
+                                onResume = {
+                                    val mode = normalizeMode(pausedGame.mode)
+                                    val route = if (mode == "1vs1") {
+                                        "game-1vs1/${pausedGame.game_id}/friends"
+                                    } else {
+                                        "game-1vs1vs1vs1/${pausedGame.game_id}/friends"
+                                    }
+                                    onNavigate(route)
+                                },
+                                onAbandon = {
+                                    scope.launch {
+                                        when (val result = GamesRepository.leaveLobby(pausedGame.game_id)) {
+                                            is UserResult.Success -> {
+                                                showToast(result.data, "info")
+                                                loadPanel(showSpinner = false)
+                                            }
+                                            is UserResult.Error -> showToast(result.message, "error")
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1031,4 +1104,3 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
         }
     )
 }
-

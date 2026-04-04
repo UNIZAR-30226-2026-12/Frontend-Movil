@@ -157,7 +157,8 @@ object GamesRepository {
         try {
             val response = ApiClient.authApiService.leaveLobby(gameId)
             if (response.isSuccessful) {
-                UserResult.Success("Has abandonado la sala")
+                val message = response.body()?.message?.takeIf { it.isNotBlank() } ?: "Has abandonado la sala"
+                UserResult.Success(message)
             } else {
                 UserResult.Error("Error al salir (${response.code()})")
             }
