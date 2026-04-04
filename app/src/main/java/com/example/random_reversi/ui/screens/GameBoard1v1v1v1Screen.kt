@@ -80,6 +80,7 @@ fun GameBoard1v1v1v1Screen(
     val gameState by ws?.gameState?.collectAsState() ?: remember { mutableStateOf(com.example.random_reversi.data.remote.GameState()) }
     val myColor by ws?.myColor?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
     val roomPlayersRaw by ws?.roomPlayers?.collectAsState() ?: remember { mutableStateOf(emptyList()) }
+    val chatMessages by ws?.chatMessages?.collectAsState() ?: remember { mutableStateOf(emptyList()) }
 
     var myUsername by remember { mutableStateOf("Jugador") }
     var myElo by remember { mutableStateOf(1000) }
@@ -88,6 +89,9 @@ fun GameBoard1v1v1v1Screen(
     var selectedQuadrant by remember { mutableStateOf<Int?>(null) }
     var showLeaveConfirm by remember { mutableStateOf(false) }
     var abandonNotice by remember { mutableStateOf<String?>(null) }
+    var showChat by remember { mutableStateOf(false) }
+    var unreadChatCount by remember { mutableStateOf(0) }
+    var processedChatCount by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
     val players = remember(roomPlayersRaw, myUsername, myElo, myAvatar) {
@@ -154,6 +158,20 @@ fun GameBoard1v1v1v1Screen(
 
     LaunchedEffect(gameId) { ws?.connect() }
 
+    LaunchedEffect(chatMessages.size, showChat, myUsername) {
+        if (showChat) {
+            unreadChatCount = 0
+            processedChatCount = chatMessages.size
+            return@LaunchedEffect
+        }
+
+        if (chatMessages.size > processedChatCount) {
+            val newMessages = chatMessages.subList(processedChatCount, chatMessages.size)
+            unreadChatCount += newMessages.count { (sender, _) -> sender != myUsername }
+            processedChatCount = chatMessages.size
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose { ws?.disconnect() }
     }
@@ -190,9 +208,14 @@ fun GameBoard1v1v1v1Screen(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                InGameChatButton(
+                    unreadCount = unreadChatCount,
+                    onClick = { showChat = true }
+                )
+
                 OutlinedButton(
                     onClick = { showLeaveConfirm = true },
                     colors = ButtonDefaults.outlinedButtonColors(
@@ -433,6 +456,15 @@ fun GameBoard1v1v1v1Screen(
                         Text("Seguir jugando", color = TextMutedColor)
                     }
                 }
+            )
+        }
+
+        if (showChat) {
+            InGameChatOverlay(
+                messages = chatMessages,
+                myUsername = myUsername,
+                onClose = { showChat = false },
+                onSend = { message -> ws?.sendChat(message) }
             )
         }
 
