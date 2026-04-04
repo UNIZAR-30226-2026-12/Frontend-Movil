@@ -44,11 +44,11 @@ fun LoginScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 AuthTextInput(
-                    label = "Correo electrónico",
+                    label = "Usuario o Correo",
                     value = email,
-                    placeholder = "tu@email.com",
+                    placeholder = "Tu Usuario o Correo",
                     onValueChange = { email = it },
-                    keyboardType = KeyboardType.Email
+                    keyboardType = KeyboardType.Text
                 )
 
                 AuthTextInput(

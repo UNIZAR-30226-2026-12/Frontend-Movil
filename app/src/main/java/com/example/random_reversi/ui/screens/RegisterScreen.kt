@@ -57,7 +57,7 @@ fun RegisterScreen(
                 AuthTextInput(
                     label = "Correo electrónico",
                     value = email,
-                    placeholder = "tu@email.com",
+                    placeholder = "usuario@ejemplo.com",
                     onValueChange = { email = it },
                     keyboardType = KeyboardType.Email
                 )
