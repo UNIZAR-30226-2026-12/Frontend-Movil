@@ -1,3 +1,27 @@
+/**
+ * *********************************************************************************
+ * MÓDULO DE COMUNICACIÓN: API CLIENT CONFIGURATION
+ * DESARROLLADOR: 898107
+ * *********************************************************************************
+ * DETALLES TÉCNICOS DE IMPLEMENTACIÓN:
+ * - Framework base: Retrofit 2.9.0 para la gestión de peticiones REST.
+ * - Serialización: GsonConverterFactory para la transformación de JSON a objetos Kotlin.
+ * - Cliente HTTP: OkHttpClient con interceptores de logging para depuración en desarrollo.
+ * * SEGURIDAD Y PROTOCOLOS:
+ * 1. Gestión de Timeouts: Se han configurado 30 segundos para lectura y conexión.
+ * 2. Base URL: Apunta al entorno local de Docker (10.0.2.2 para el emulador de Android).
+ * 3. Interceptores: Capacidad de añadir Tokens JWT en las cabeceras de futuras peticiones.
+ * *********************************************************************************
+ */
+
+
+/**
+ * Singleton ApiClient
+ * * Este objeto garantiza una única instancia de la configuración de red en toda la app.
+ * Evita fugas de memoria y asegura que todos los servicios compartan el mismo pool 
+ * de conexiones HTTP, optimizando el rendimiento de la batería del dispositivo.
+ */
+
 package com.example.random_reversi.data.remote
 
 import com.example.random_reversi.BuildConfig

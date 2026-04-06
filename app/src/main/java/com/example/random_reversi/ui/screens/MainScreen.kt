@@ -1,3 +1,23 @@
+/**
+ * *********************************************************************************
+ * GESTOR DE NAVEGACIÓN PRINCIPAL: NAVIGATION GRAPH
+ * AUTOR: 898107
+ * *********************************************************************************
+ * DESCRIPCIÓN:
+ * Este componente define el esqueleto de navegación de la aplicación mediante
+ * NavHost. Centraliza todas las rutas y destinos disponibles en el ecosistema Reversi.
+ * * FLUJOS DE USUARIO CONTROLADOS:
+ * - Auth Flow: Login -> Register -> Forgot Password.
+ * - Game Flow: Main Menu -> Online Lobby -> Game Board.
+ * - Social Flow: Friends List -> Global Ranking -> Profile.
+ * * CONFIGURACIÓN DE ANIMACIONES:
+ * Se utilizan transiciones de entrada y salida personalizadas para mejorar
+ * la experiencia de usuario (UX) siguiendo las guías de Material Design 3.
+ * *********************************************************************************
+ */
+
+
+
 package com.example.random_reversi.ui.screens
 
 import androidx.compose.animation.core.*
