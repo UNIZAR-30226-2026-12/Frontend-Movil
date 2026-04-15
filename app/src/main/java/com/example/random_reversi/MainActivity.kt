@@ -32,6 +32,7 @@ import com.example.random_reversi.ui.screens.RulesScreen
 import com.example.random_reversi.ui.screens.OnlineGameScreen
 import com.example.random_reversi.ui.screens.ProfileScreen
 import com.example.random_reversi.ui.screens.WaitingRoomScreen
+import com.example.random_reversi.ui.screens.RankingScreen
 import com.example.random_reversi.ui.theme.ReversiTheme
 
 private fun normalizeInviteMode(mode: String?): String = when (mode?.trim()?.lowercase()) {
@@ -107,6 +108,9 @@ fun AppNavigation() {
             }
             "rules" -> {
                 RulesScreen(onNavigate = { currentScreen = it })
+            }
+            "ranking" -> {
+                RankingScreen(onNavigate = { currentScreen = it })
             }
             "online-game" -> {
                 OnlineGameScreen(onNavigate = { currentScreen = it })
