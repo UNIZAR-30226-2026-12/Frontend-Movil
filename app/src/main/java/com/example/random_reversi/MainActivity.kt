@@ -118,10 +118,12 @@ fun AppNavigation() {
             "profile" -> {
                 val userId = parts.getOrNull(1)?.toIntOrNull()
                 val friendName = parts.getOrNull(2)?.let { Uri.decode(it) }
+                val returnTo = parts.getOrNull(3) ?: "menu"
                 ProfileScreen(
                     onNavigate = { currentScreen = it },
                     userId = userId,
-                    targetUsername = friendName
+                    targetUsername = friendName,
+                    returnTo = returnTo
                 )
             }
             "waiting-room" -> {

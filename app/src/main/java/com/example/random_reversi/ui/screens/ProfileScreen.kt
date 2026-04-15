@@ -78,7 +78,8 @@ private enum class StatsMode(val label: String) {
 fun ProfileScreen(
     onNavigate: (String) -> Unit,
     userId: Int? = null,
-    targetUsername: String? = null
+    targetUsername: String? = null,
+    returnTo: String = "menu"
 ) {
     val scope = rememberCoroutineScope()
     val profile by UserProfileStore.state.collectAsState()
@@ -272,11 +273,21 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
         Button(
-            onClick = { onNavigate(if (isOwnProfile) "menu" else "friends") },
+            onClick = { onNavigate(if (isOwnProfile) "menu" else returnTo) }, // <-- CAMBIO AQUÍ
             modifier = Modifier.fillMaxWidth(0.72f).height(48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
             shape = RoundedCornerShape(12.dp)
-        ) { Text(if (isOwnProfile) "Volver al menu" else "Volver a amigos", color = Color.White, fontWeight = FontWeight.Bold) }
+        ) {
+            // <-- NUEVO TEXTO DINÁMICO
+            val buttonText = if (isOwnProfile) {
+                "Volver al menu"
+            } else if (returnTo == "ranking") {
+                "Volver al ranking"
+            } else {
+                "Volver a amigos"
+            }
+            Text(buttonText, color = Color.White, fontWeight = FontWeight.Bold)
+        }
         Spacer(modifier = Modifier.height(8.dp))
     }
 }

@@ -11,7 +11,8 @@ object RankingRepository {
         try {
             val response = ApiClient.authApiService.getRanking()
             if (response.isSuccessful) {
-                UserResult.Success(response.body() ?: emptyList())
+                val rankingList = response.body()?.ranking ?: emptyList()
+                UserResult.Success(rankingList)
             } else {
                 UserResult.Error("Error al cargar ranking (${response.code()})")
             }

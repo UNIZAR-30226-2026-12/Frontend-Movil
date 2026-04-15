@@ -292,6 +292,10 @@ data class LobbyLeaveResponse(
 
 // ── Ranking Models ──
 
+data class RankingResponse(
+    val ranking: List<RankingEntry> = emptyList()
+)
+
 data class RankingEntry(
     val id: Int,
     val username: String,
@@ -432,5 +436,8 @@ interface AuthApiService {
     // ── Ranking ──
 
     @GET("api/ranking/")
-    suspend fun getRanking(): Response<List<RankingEntry>>
+    suspend fun getRanking(
+        @Query("limit") limit: Int = 100,
+        @Query("skip") skip: Int = 0
+    ): Response<RankingResponse>
 }
