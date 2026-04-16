@@ -38,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -232,10 +231,11 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(40.dp))
             Header(name, elo, avatar, isOwnProfile)
             Spacer(modifier = Modifier.height(12.dp))
+
             if (isOwnProfile) {
                 SegmentedTabs(activeTab, { activeTab = it }, Tab.values().toList())
+                Spacer(modifier = Modifier.height(10.dp))
             }
-            Spacer(modifier = Modifier.height(12.dp))
 
             when {
                 loading -> Box(
@@ -248,15 +248,49 @@ fun ProfileScreen(
                 activeTab == Tab.Summary -> {
                     SegmentedTabs(activeMode, { activeMode = it }, StatsMode.values().toList())
                     Spacer(modifier = Modifier.height(12.dp))
-                    WinRateCard(modeStats, activeMode == StatsMode.FourPlayers)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    StatsCard(modeStats, activeMode == StatsMode.FourPlayers)
+
+                    // ── Fila 1: Win Rate + Estadísticas ──────────────
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        WinRateCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f))
+                        StatsCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f))
+                    }
 
                     if (isOwnProfile) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        Highlights(modeStats, elo, activeMode == StatsMode.FourPlayers)
+                        // ── Fila 2: Pico RR + Némesis ────────────────
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            PicoCard(modeStats.peak_elo ?: elo, Modifier.weight(1f))
+                            NemesisCard(
+                                name = modeStats.nemesis_name ?: "-",
+                                count = modeStats.nemesis_losses ?: 0,
+                                isFourPlayer = activeMode == StatsMode.FourPlayers,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
-                        Rivals(modeStats, activeMode == StatsMode.FourPlayers)
+                        // ── Fila 3: Racha + Víctima ──────────────────
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            RachaCard(
+                                streak = modeStats.win_streak,
+                                isFourPlayer = activeMode == StatsMode.FourPlayers,
+                                modifier = Modifier.weight(1f)
+                            )
+                            VictimaCard(
+                                name = modeStats.victim_name ?: "-",
+                                count = modeStats.victim_wins ?: 0,
+                                isFourPlayer = activeMode == StatsMode.FourPlayers,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
 
                     if (!isOwnProfile) {
@@ -302,110 +336,84 @@ fun ProfileScreen(
     }
 }
 
-// ── Header con ilustración decorativa de perfil ──────────────────────
+// ── Header: Avatar a la izquierda + tarjeta ELO a la derecha ─────────
 @Composable
 private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile: Boolean) {
-    Column(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
-        // Ilustración decorativa
-        Image(
-            painter = painterResource(id = R.drawable.fotoperfil),
-            contentDescription = null,
-            contentScale = ContentScale.FillWidth,
+        // Avatar estilo polaroid
+        Box(
             modifier = Modifier
-                .fillMaxWidth(0.50f)
-                .padding(bottom = 8.dp)
-        )
-
-        // Tarjeta de perfil
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = SurfaceColor.copy(alpha = 0.92f),
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, BorderColor)
+                .background(Color.White, RoundedCornerShape(6.dp))
+                .padding(3.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Avatar estilo polaroid
-                Box(
+            val presetRes = AvatarPresets.drawableForId(avatarUrl)
+            when {
+                presetRes != null -> Image(
+                    painter = painterResource(presetRes),
+                    contentDescription = "Avatar",
                     modifier = Modifier
-                        .background(Color.White, RoundedCornerShape(6.dp))
-                        .padding(3.dp)
-                ) {
-                    val presetRes = AvatarPresets.drawableForId(avatarUrl)
-                    when {
-                        presetRes != null -> Image(
-                            painter = painterResource(presetRes),
-                            contentDescription = "Avatar",
-                            modifier = Modifier
-                                .size(62.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                        !avatarUrl.isNullOrBlank() -> AsyncImage(
-                            model = avatarUrl,
-                            contentDescription = "Avatar",
-                            modifier = Modifier
-                                .size(62.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                        else -> Box(
-                            modifier = Modifier
-                                .size(62.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(PrimaryColor),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                username.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 22.sp
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        username,
-                        color = TextColor,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        if (isOwnProfile) "Perfil y estadisticas" else "Estadisticas del jugador",
-                        color = TextMutedColor,
-                        fontSize = 12.sp
-                    )
-                }
-                Surface(
-                    color = PrimaryColor.copy(alpha = 0.18f),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, PrimaryColor.copy(alpha = 0.35f))
+                        .size(62.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                !avatarUrl.isNullOrBlank() -> AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = "Avatar",
+                    modifier = Modifier
+                        .size(62.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                else -> Box(
+                    modifier = Modifier
+                        .size(62.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(PrimaryColor),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "$elo RR",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        color = Color(0xFFFBBF24),
+                        username.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
+                        color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        fontSize = 22.sp
                     )
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(14.dp))
+
+        // Placa ELO ACTUAL (PNG con valor superpuesto)
+        Box(
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.eloactual),
+                contentDescription = "ELO Actual",
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier.width(180.dp)
+            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 18.dp)
+            ) {
+                Text(
+                    "$elo RR",
+                    color = TextColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
 }
 
-// ── Tarjeta ilustrada reutilizable ───────────────────────────────────
-// PNG decorativo en la parte superior + contenido de datos debajo
+// ── Tarjeta ilustrada reutilizable (PNG arriba + datos abajo) ────────
 @Composable
 private fun IllustratedCard(
     imageRes: Int,
@@ -413,7 +421,7 @@ private fun IllustratedCard(
     content: @Composable () -> Unit
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
         color = SurfaceColor.copy(alpha = 0.95f),
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, BorderColor)
@@ -426,8 +434,9 @@ private fun IllustratedCard(
                 modifier = Modifier.fillMaxWidth()
             )
             Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 content()
             }
@@ -435,199 +444,230 @@ private fun IllustratedCard(
     }
 }
 
-// ── Win Rate ─────────────────────────────────────────────────────────
+// ── Win Rate (texto superpuesto sobre el PNG) ────────────────────────
 @Composable
-private fun WinRateCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean) {
+private fun WinRateCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
     val total = modeStats.total_games.coerceAtLeast(0)
     val wins = if (isFourPlayer) (modeStats.first_place ?: 0) else modeStats.wins
     val losses = if (isFourPlayer) (total - wins).coerceAtLeast(0) else modeStats.losses
     val ratio = if (total > 0) wins.toFloat() / total.toFloat() else 0f
     val percent = (ratio * 100).roundToInt()
 
-    IllustratedCard(imageRes = R.drawable.winrate) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier.size(86.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    progress = { ratio },
-                    color = Color(0xFF4ADE80),
-                    trackColor = Color(0xFFF87171),
-                    strokeWidth = 8.dp,
-                    strokeCap = StrokeCap.Butt,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Text("$percent%", color = TextColor, fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    if (isFourPlayer) "1º puesto: $wins" else "Victorias: $wins",
-                    color = Color(0xFF4ADE80),
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    if (isFourPlayer) "2º, 3º o 4º puesto: $losses" else "Derrotas: $losses",
-                    color = Color(0xFFF87171),
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
-}
-
-// ── Estadísticas ─────────────────────────────────────────────────────
-@Composable
-private fun StatsCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean) {
-    IllustratedCard(imageRes = R.drawable.estadisticas) {
-        Text("Estadisticas", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        StatRow("Partidas jugadas", modeStats.total_games.toString())
-        if (isFourPlayer) {
-            StatRow("1º puesto", (modeStats.first_place ?: 0).toString(), Color(0xFF4ADE80))
-            StatRow("2º puesto", (modeStats.second_place ?: 0).toString())
-            StatRow("3º puesto", (modeStats.third_place ?: 0).toString())
-            StatRow("4º puesto", (modeStats.fourth_place ?: 0).toString(), Color(0xFFF87171))
-        } else {
-            StatRow("Victorias", modeStats.wins.toString(), Color(0xFF4ADE80))
-            StatRow("Derrotas", modeStats.losses.toString(), Color(0xFFF87171))
-            StatRow("Empates", modeStats.draws.toString(), Color(0xFFFBBF24))
-        }
-    }
-}
-
-// ── Highlights (Pico RR + Mejor racha) ───────────────────────────────
-@Composable
-private fun Highlights(
-    modeStats: ModeStatsResponse,
-    elo: Int,
-    isFourPlayer: Boolean
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(16.dp)),
+        contentAlignment = Alignment.BottomCenter
     ) {
-        // Pico RR
-        IllustratedCard(imageRes = R.drawable.picorr, modifier = Modifier.weight(1f)) {
+        // PNG como fondo completo
+        Image(
+            painter = painterResource(id = R.drawable.winrate),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth()
+        )
+        // Datos superpuestos sobre el PNG
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
-                "Pico RR",
-                color = TextMutedColor,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                (modeStats.peak_elo ?: elo).toString(),
+                "$percent%",
                 color = TextColor,
                 fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                fontSize = 22.sp,
+                textAlign = TextAlign.Center
             )
             Text(
-                "Maximo historico",
+                if (isFourPlayer) "1º: $wins" else "$wins V - $losses D",
                 color = TextMutedColor,
                 fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                textAlign = TextAlign.Center
             )
         }
-        // Mejor racha
-        IllustratedCard(imageRes = R.drawable.racha, modifier = Modifier.weight(1f)) {
+    }
+}
+
+// ── Estadísticas (números superpuestos sobre el PNG) ─────────────────
+@Composable
+private fun StatsCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(16.dp)),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        // PNG como fondo completo
+        Image(
+            painter = painterResource(id = R.drawable.estadisticas),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth()
+        )
+        // Solo los números superpuestos
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
-                "Mejor racha",
-                color = TextMutedColor,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                modeStats.win_streak.toString(),
+                modeStats.total_games.toString(),
                 color = TextColor,
                 fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center
+            )
+            if (isFourPlayer) {
+                Text((modeStats.first_place ?: 0).toString(), color = Color(0xFF4ADE80), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text((modeStats.second_place ?: 0).toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text((modeStats.third_place ?: 0).toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text((modeStats.fourth_place ?: 0).toString(), color = Color(0xFFF87171), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            } else {
+                Text(modeStats.wins.toString(), color = Color(0xFF4ADE80), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(modeStats.losses.toString(), color = Color(0xFFF87171), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(modeStats.draws.toString(), color = Color(0xFFFBBF24), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+// ── Pico de RR (PNG + valor) ─────────────────────────────────────────
+@Composable
+private fun PicoCard(peakElo: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(16.dp)),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.picorr),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            "$peakElo RR",
+            color = TextColor,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(10.dp)
+        )
+    }
+}
+
+// ── Tu Némesis (datos superpuestos sobre el PNG) ─────────────────────
+@Composable
+private fun NemesisCard(name: String, count: Int, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(16.dp)),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.nemesis),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                name,
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (count > 0) {
+                Text(
+                    "${if (isFourPlayer) "Superado" else "Derrotas"}: $count",
+                    color = TextMutedColor,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+// ── Mejor Racha (datos superpuestos sobre el PNG) ────────────────────
+@Composable
+private fun RachaCard(streak: Int, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(16.dp)),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.racha),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                streak.toString(),
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center
             )
             Text(
                 if (isFourPlayer) "1º puestos seguidos" else "Victorias seguidas",
                 color = TextMutedColor,
                 fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                textAlign = TextAlign.Center
             )
         }
     }
 }
 
-// ── Rivals (Némesis + Víctima) ───────────────────────────────────────
+// ── Tu Víctima (datos superpuestos sobre el PNG) ─────────────────────
 @Composable
-private fun Rivals(modeStats: ModeStatsResponse, isFourPlayer: Boolean) {
-    val n = modeStats.nemesis_losses ?: 0
-    val v = modeStats.victim_wins ?: 0
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+private fun VictimaCard(name: String, count: Int, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.clip(RoundedCornerShape(16.dp)),
+        contentAlignment = Alignment.BottomCenter
     ) {
-        // Nemesis
-        IllustratedCard(imageRes = R.drawable.nemesis, modifier = Modifier.weight(1f)) {
+        Image(
+            painter = painterResource(id = R.drawable.victima),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
-                "Nemesis",
-                color = TextMutedColor,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                modeStats.nemesis_name ?: "-",
+                name,
                 color = TextColor,
                 fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                overflow = TextOverflow.Ellipsis
             )
-            Text(
-                if (n > 0) "${if (isFourPlayer) "Te ha superado" else "Te ha ganado"} $n veces" else "Sin rival destacado",
-                color = TextMutedColor,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        // Victima
-        IllustratedCard(imageRes = R.drawable.victima, modifier = Modifier.weight(1f)) {
-            Text(
-                "Victima",
-                color = TextMutedColor,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                modeStats.victim_name ?: "-",
-                color = TextColor,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                if (v > 0) "${if (isFourPlayer) "Lo has superado" else "Has ganado"} $v veces" else "Sin victima destacada",
-                color = TextMutedColor,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (count > 0) {
+                Text(
+                    "${if (isFourPlayer) "Superado" else "Victorias"}: $count",
+                    color = TextMutedColor,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
 
-// ── Cara a cara ──────────────────────────────────────────────────────
+// ── Cara a cara (perfil ajeno) ───────────────────────────────────────
 @Composable
 private fun HeadToHeadCard(h2h: HeadToHeadResponse?, isFourPlayer: Boolean) {
     Surface(
@@ -776,8 +816,8 @@ private fun <T> SegmentedTabs(active: T, onSelect: (T) -> Unit, values: List<T>)
 // ── Fila de estadística ──────────────────────────────────────────────
 @Composable private fun StatRow(label: String, value: String, color: Color = TextColor) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = TextMutedColor, fontSize = 13.sp)
-        Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Text(label, color = TextMutedColor, fontSize = 11.sp, maxLines = 1)
+        Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
     }
 }
 
