@@ -1,20 +1,21 @@
 package com.example.random_reversi.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryColor,
-    secondary = SecondaryColor,
-    background = BgColor,
-    surface = SurfaceColor,
-    onPrimary = BgColor,
-    onSecondary = BgColor,
-    onBackground = TextColor,
-    onSurface = TextColor,
-    surfaceVariant = SurfaceLightColor,
-    outline = BorderColor
+// Usamos lightColorScheme porque ahora las superficies son claras (beige/crema)
+private val CartoonColorScheme = lightColorScheme(
+    primary          = PrimaryColor,
+    secondary        = SecondaryColor,
+    background       = BgColor,
+    surface          = SurfaceColor,
+    onPrimary        = TextOnDark,
+    onSecondary      = TextColor,
+    onBackground     = TextOnDark,
+    onSurface        = TextColor,
+    surfaceVariant   = SurfaceLightColor,
+    outline          = BorderColor
 )
 
 @Composable
@@ -22,7 +23,7 @@ fun ReversiTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = CartoonColorScheme,
         content = content
     )
 }

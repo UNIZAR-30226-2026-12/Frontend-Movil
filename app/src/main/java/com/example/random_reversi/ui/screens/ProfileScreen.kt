@@ -1,8 +1,10 @@
 package com.example.random_reversi.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,9 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -38,14 +38,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.random_reversi.R
 import com.example.random_reversi.data.GamesRepository
 import com.example.random_reversi.data.UserProfileStore
 import com.example.random_reversi.data.UserRepository
@@ -53,13 +56,7 @@ import com.example.random_reversi.data.UserResult
 import com.example.random_reversi.data.remote.HeadToHeadResponse
 import com.example.random_reversi.data.remote.ModeStatsResponse
 import com.example.random_reversi.data.remote.UserStatsResponse
-import com.example.random_reversi.ui.theme.BgColor
-import com.example.random_reversi.ui.theme.BorderColor
-import com.example.random_reversi.ui.theme.PrimaryColor
-import com.example.random_reversi.ui.theme.SurfaceColor
-import com.example.random_reversi.ui.theme.SurfaceLightColor
-import com.example.random_reversi.ui.theme.TextColor
-import com.example.random_reversi.ui.theme.TextMutedColor
+import com.example.random_reversi.ui.theme.*
 import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -213,109 +210,232 @@ fun ProfileScreen(
     val elo = stats?.elo ?: 1000
     val avatar = stats?.avatar_url ?: profile.avatarUrl
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BgColor)
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Header(name, elo, avatar, isOwnProfile)
-        Spacer(modifier = Modifier.height(10.dp))
-        if (isOwnProfile) {
-            SegmentedTabs(activeTab, { activeTab = it }, Tab.values().toList())
-        }
-        Spacer(modifier = Modifier.height(10.dp))
+    // ── Layout principal con fondo decorativo ────────────────────────
+    Box(modifier = Modifier.fillMaxSize()) {
 
-        when {
-            loading -> Box(Modifier.fillMaxWidth().height(220.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = PrimaryColor)
-            }
-            error != null -> ErrorCard(error ?: "No se pudo cargar el perfil") { loadProfile() }
-            activeTab == Tab.Summary -> {
-                SegmentedTabs(activeMode, { activeMode = it }, StatsMode.values().toList())
-                Spacer(modifier = Modifier.height(10.dp))
-                WinRateCard(modeStats, activeMode == StatsMode.FourPlayers)
-                Spacer(modifier = Modifier.height(10.dp))
-                StatsCard(modeStats, activeMode == StatsMode.FourPlayers)
+        // ── Fondo ────────────────────────────────────────────────────
+        Image(
+            painter = painterResource(id = R.drawable.nuevofondomovil),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
 
-                if (isOwnProfile) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Highlights(modeStats, elo, activeMode == StatsMode.FourPlayers)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Rivals(modeStats, activeMode == StatsMode.FourPlayers)
-                }
-
-                if (!isOwnProfile) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    HeadToHeadCard(h2h = h2h, isFourPlayer = activeMode == StatsMode.FourPlayers)
-                }
-            }
-            else -> SettingsCard(
-                username = username,
-                email = email,
-                currentPassword = currentPassword,
-                newPassword = newPassword,
-                confirmPassword = confirmPassword,
-                onUsername = { username = it },
-                onEmail = { email = it },
-                onCurrent = { currentPassword = it },
-                onNew = { newPassword = it },
-                onConfirm = { confirmPassword = it },
-                onSave = { saveSettings() },
-                saving = saving,
-                error = settingsError,
-                success = settingsSuccess
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = { onNavigate(if (isOwnProfile) "menu" else returnTo) }, // <-- CAMBIO AQUÍ
-            modifier = Modifier.fillMaxWidth(0.72f).height(48.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
-            shape = RoundedCornerShape(12.dp)
+        // ── Contenido con scroll ─────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // <-- NUEVO TEXTO DINÁMICO
-            val buttonText = if (isOwnProfile) {
-                "Volver al menu"
-            } else if (returnTo == "ranking") {
-                "Volver al ranking"
-            } else {
-                "Volver a amigos"
+            Spacer(modifier = Modifier.height(40.dp))
+            Header(name, elo, avatar, isOwnProfile)
+            Spacer(modifier = Modifier.height(12.dp))
+            if (isOwnProfile) {
+                SegmentedTabs(activeTab, { activeTab = it }, Tab.values().toList())
             }
-            Text(buttonText, color = Color.White, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            when {
+                loading -> Box(
+                    Modifier.fillMaxWidth().height(220.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = PrimaryColor)
+                }
+                error != null -> ErrorCard(error ?: "No se pudo cargar el perfil") { loadProfile() }
+                activeTab == Tab.Summary -> {
+                    SegmentedTabs(activeMode, { activeMode = it }, StatsMode.values().toList())
+                    Spacer(modifier = Modifier.height(12.dp))
+                    WinRateCard(modeStats, activeMode == StatsMode.FourPlayers)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    StatsCard(modeStats, activeMode == StatsMode.FourPlayers)
+
+                    if (isOwnProfile) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Highlights(modeStats, elo, activeMode == StatsMode.FourPlayers)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Rivals(modeStats, activeMode == StatsMode.FourPlayers)
+                    }
+
+                    if (!isOwnProfile) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HeadToHeadCard(h2h = h2h, isFourPlayer = activeMode == StatsMode.FourPlayers)
+                    }
+                }
+                else -> SettingsCard(
+                    username = username,
+                    email = email,
+                    currentPassword = currentPassword,
+                    newPassword = newPassword,
+                    confirmPassword = confirmPassword,
+                    onUsername = { username = it },
+                    onEmail = { email = it },
+                    onCurrent = { currentPassword = it },
+                    onNew = { newPassword = it },
+                    onConfirm = { confirmPassword = it },
+                    onSave = { saveSettings() },
+                    saving = saving,
+                    error = settingsError,
+                    success = settingsSuccess
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── Botón volver (PNG) ───────────────────────────────────
+            Image(
+                painter = painterResource(id = R.drawable.botonvolvermenu),
+                contentDescription = "Volver",
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { onNavigate(if (isOwnProfile) "menu" else returnTo) }
+                    )
+            )
+            Spacer(modifier = Modifier.height(28.dp))
         }
-        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
+// ── Header con ilustración decorativa de perfil ──────────────────────
 @Composable
 private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile: Boolean) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = SurfaceColor, shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, BorderColor)) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(modifier = Modifier.size(62.dp).clip(CircleShape), shape = CircleShape, border = BorderStroke(1.dp, BorderColor), color = SurfaceLightColor) {
-                val presetRes = AvatarPresets.drawableForId(avatarUrl)
-                when {
-                    presetRes != null -> androidx.compose.foundation.Image(painter = painterResource(presetRes), contentDescription = "Avatar", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    !avatarUrl.isNullOrBlank() -> AsyncImage(model = avatarUrl, contentDescription = "Avatar", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(username.firstOrNull()?.uppercaseChar()?.toString() ?: "J", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 22.sp) }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Ilustración decorativa
+        Image(
+            painter = painterResource(id = R.drawable.fotoperfil),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier
+                .fillMaxWidth(0.50f)
+                .padding(bottom = 8.dp)
+        )
+
+        // Tarjeta de perfil
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = SurfaceColor.copy(alpha = 0.92f),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, BorderColor)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Avatar estilo polaroid
+                Box(
+                    modifier = Modifier
+                        .background(Color.White, RoundedCornerShape(6.dp))
+                        .padding(3.dp)
+                ) {
+                    val presetRes = AvatarPresets.drawableForId(avatarUrl)
+                    when {
+                        presetRes != null -> Image(
+                            painter = painterResource(presetRes),
+                            contentDescription = "Avatar",
+                            modifier = Modifier
+                                .size(62.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        !avatarUrl.isNullOrBlank() -> AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = "Avatar",
+                            modifier = Modifier
+                                .size(62.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        else -> Box(
+                            modifier = Modifier
+                                .size(62.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(PrimaryColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                username.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 22.sp
+                            )
+                        }
+                    }
                 }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(username, color = TextColor, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(if (isOwnProfile) "Perfil y estadisticas" else "Estadisticas del jugador", color = TextMutedColor, fontSize = 12.sp)
-            }
-            Surface(color = PrimaryColor.copy(alpha = 0.18f), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, PrimaryColor.copy(alpha = 0.35f))) {
-                Text("$elo RR", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color(0xFFFBBF24), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        username,
+                        color = TextColor,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        if (isOwnProfile) "Perfil y estadisticas" else "Estadisticas del jugador",
+                        color = TextMutedColor,
+                        fontSize = 12.sp
+                    )
+                }
+                Surface(
+                    color = PrimaryColor.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, PrimaryColor.copy(alpha = 0.35f))
+                ) {
+                    Text(
+                        "$elo RR",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        color = Color(0xFFFBBF24),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
             }
         }
     }
 }
 
+// ── Tarjeta ilustrada reutilizable ───────────────────────────────────
+// PNG decorativo en la parte superior + contenido de datos debajo
+@Composable
+private fun IllustratedCard(
+    imageRes: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = SurfaceColor.copy(alpha = 0.95f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, BorderColor)
+    ) {
+        Column {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = null,
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+// ── Win Rate ─────────────────────────────────────────────────────────
 @Composable
 private fun WinRateCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean) {
     val total = modeStats.total_games.coerceAtLeast(0)
@@ -324,8 +444,11 @@ private fun WinRateCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean) {
     val ratio = if (total > 0) wins.toFloat() / total.toFloat() else 0f
     val percent = (ratio * 100).roundToInt()
 
-    Surface(modifier = Modifier.fillMaxWidth(), color = SurfaceColor, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, BorderColor)) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    IllustratedCard(imageRes = R.drawable.winrate) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier.size(86.dp),
                 contentAlignment = Alignment.Center
@@ -342,33 +465,41 @@ private fun WinRateCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean) {
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(if (isFourPlayer) "1º puesto: $wins" else "Victorias: $wins", color = Color(0xFF4ADE80), fontWeight = FontWeight.SemiBold)
-                Text(if (isFourPlayer) "2º, 3º o 4º puesto: $losses" else "Derrotas: $losses", color = Color(0xFFF87171), fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (isFourPlayer) "1º puesto: $wins" else "Victorias: $wins",
+                    color = Color(0xFF4ADE80),
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    if (isFourPlayer) "2º, 3º o 4º puesto: $losses" else "Derrotas: $losses",
+                    color = Color(0xFFF87171),
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
 }
 
+// ── Estadísticas ─────────────────────────────────────────────────────
 @Composable
 private fun StatsCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = SurfaceColor, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, BorderColor)) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Estadisticas", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            StatRow("Partidas jugadas", modeStats.total_games.toString())
-            if (isFourPlayer) {
-                StatRow("1º puesto", (modeStats.first_place ?: 0).toString(), Color(0xFF4ADE80))
-                StatRow("2º puesto", (modeStats.second_place ?: 0).toString())
-                StatRow("3º puesto", (modeStats.third_place ?: 0).toString())
-                StatRow("4º puesto", (modeStats.fourth_place ?: 0).toString(), Color(0xFFF87171))
-            } else {
-                StatRow("Victorias", modeStats.wins.toString(), Color(0xFF4ADE80))
-                StatRow("Derrotas", modeStats.losses.toString(), Color(0xFFF87171))
-                StatRow("Empates", modeStats.draws.toString(), Color(0xFFFBBF24))
-            }
+    IllustratedCard(imageRes = R.drawable.estadisticas) {
+        Text("Estadisticas", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        StatRow("Partidas jugadas", modeStats.total_games.toString())
+        if (isFourPlayer) {
+            StatRow("1º puesto", (modeStats.first_place ?: 0).toString(), Color(0xFF4ADE80))
+            StatRow("2º puesto", (modeStats.second_place ?: 0).toString())
+            StatRow("3º puesto", (modeStats.third_place ?: 0).toString())
+            StatRow("4º puesto", (modeStats.fourth_place ?: 0).toString(), Color(0xFFF87171))
+        } else {
+            StatRow("Victorias", modeStats.wins.toString(), Color(0xFF4ADE80))
+            StatRow("Derrotas", modeStats.losses.toString(), Color(0xFFF87171))
+            StatRow("Empates", modeStats.draws.toString(), Color(0xFFFBBF24))
         }
     }
 }
 
+// ── Highlights (Pico RR + Mejor racha) ───────────────────────────────
 @Composable
 private fun Highlights(
     modeStats: ModeStatsResponse,
@@ -379,37 +510,129 @@ private fun Highlights(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        MiniCard(
-            "👑",
-            "Pico RR",
-            (modeStats.peak_elo ?: elo).toString(),
-            "Maximo historico",
-            Modifier.weight(1f)
-        )
-        MiniCard(
-            "🔥",
-            "Mejor racha",
-            modeStats.win_streak.toString(),
-            if (isFourPlayer) "1º puestos seguidos" else "Victorias seguidas",
-            Modifier.weight(1f)
-        )
+        // Pico RR
+        IllustratedCard(imageRes = R.drawable.picorr, modifier = Modifier.weight(1f)) {
+            Text(
+                "Pico RR",
+                color = TextMutedColor,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                (modeStats.peak_elo ?: elo).toString(),
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                "Maximo historico",
+                color = TextMutedColor,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        // Mejor racha
+        IllustratedCard(imageRes = R.drawable.racha, modifier = Modifier.weight(1f)) {
+            Text(
+                "Mejor racha",
+                color = TextMutedColor,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                modeStats.win_streak.toString(),
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                if (isFourPlayer) "1º puestos seguidos" else "Victorias seguidas",
+                color = TextMutedColor,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
-@Composable private fun Rivals(modeStats: ModeStatsResponse, isFourPlayer: Boolean) {
+// ── Rivals (Némesis + Víctima) ───────────────────────────────────────
+@Composable
+private fun Rivals(modeStats: ModeStatsResponse, isFourPlayer: Boolean) {
     val n = modeStats.nemesis_losses ?: 0
     val v = modeStats.victim_wins ?: 0
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        MiniCard("😈", "Nemesis", modeStats.nemesis_name ?: "-", if (n > 0) "${if (isFourPlayer) "Te ha superado" else "Te ha ganado"} $n veces" else "Sin rival destacado", Modifier.weight(1f))
-        MiniCard("😇", "Victima", modeStats.victim_name ?: "-", if (v > 0) "${if (isFourPlayer) "Lo has superado" else "Has ganado"} $v veces" else "Sin victima destacada", Modifier.weight(1f))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Nemesis
+        IllustratedCard(imageRes = R.drawable.nemesis, modifier = Modifier.weight(1f)) {
+            Text(
+                "Nemesis",
+                color = TextMutedColor,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                modeStats.nemesis_name ?: "-",
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                if (n > 0) "${if (isFourPlayer) "Te ha superado" else "Te ha ganado"} $n veces" else "Sin rival destacado",
+                color = TextMutedColor,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        // Victima
+        IllustratedCard(imageRes = R.drawable.victima, modifier = Modifier.weight(1f)) {
+            Text(
+                "Victima",
+                color = TextMutedColor,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                modeStats.victim_name ?: "-",
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                if (v > 0) "${if (isFourPlayer) "Lo has superado" else "Has ganado"} $v veces" else "Sin victima destacada",
+                color = TextMutedColor,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
+// ── Cara a cara ──────────────────────────────────────────────────────
 @Composable
 private fun HeadToHeadCard(h2h: HeadToHeadResponse?, isFourPlayer: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = SurfaceColor,
+        color = SurfaceColor.copy(alpha = 0.92f),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, BorderColor)
     ) {
@@ -431,18 +654,7 @@ private fun HeadToHeadCard(h2h: HeadToHeadResponse?, isFourPlayer: Boolean) {
     }
 }
 
-@Composable
-private fun MiniCard(icon: String, title: String, value: String, hint: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, color = SurfaceColor, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, BorderColor)) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(icon, fontSize = 18.sp)
-            Text(title, color = TextMutedColor, fontSize = 12.sp)
-            Text(value, color = TextColor, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(hint, color = TextMutedColor, fontSize = 11.sp)
-        }
-    }
-}
-
+// ── Ajustes de cuenta ────────────────────────────────────────────────
 @Composable
 private fun SettingsCard(
     username: String,
@@ -460,7 +672,12 @@ private fun SettingsCard(
     error: String?,
     success: String?
 ) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = SurfaceColor, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, BorderColor)) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = SurfaceColor.copy(alpha = 0.95f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, BorderColor)
+    ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Cambiar los datos de tu cuenta", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             StyledField(username, onUsername, "Nombre de usuario")
@@ -470,13 +687,20 @@ private fun SettingsCard(
             StyledField(confirmPassword, onConfirm, "Confirmar contraseña", true)
             if (!error.isNullOrBlank()) Text(error, color = Color(0xFFF87171), fontSize = 12.sp)
             if (!success.isNullOrBlank()) Text(success, color = Color(0xFF4ADE80), fontSize = 12.sp)
-            Button(onClick = onSave, enabled = !saving, modifier = Modifier.fillMaxWidth().height(46.dp), colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor), shape = RoundedCornerShape(10.dp)) {
+            Button(
+                onClick = onSave,
+                enabled = !saving,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
+                shape = RoundedCornerShape(10.dp)
+            ) {
                 Text(if (saving) "Guardando..." else "Guardar cambios", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
+// ── Campo de texto con estilo ────────────────────────────────────────
 @Composable
 private fun StyledField(value: String, onChange: (String) -> Unit, label: String, isPassword: Boolean = false) {
     OutlinedTextField(
@@ -498,11 +722,12 @@ private fun StyledField(value: String, onChange: (String) -> Unit, label: String
     )
 }
 
+// ── Pestañas segmentadas ─────────────────────────────────────────────
 @Composable
 private fun <T> SegmentedTabs(active: T, onSelect: (T) -> Unit, values: List<T>) where T : Enum<T> {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = SurfaceColor,
+        color = SurfaceColor.copy(alpha = 0.92f),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, BorderColor)
     ) {
@@ -548,6 +773,7 @@ private fun <T> SegmentedTabs(active: T, onSelect: (T) -> Unit, values: List<T>)
     }
 }
 
+// ── Fila de estadística ──────────────────────────────────────────────
 @Composable private fun StatRow(label: String, value: String, color: Color = TextColor) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = TextMutedColor, fontSize = 13.sp)
@@ -555,9 +781,15 @@ private fun <T> SegmentedTabs(active: T, onSelect: (T) -> Unit, values: List<T>)
     }
 }
 
+// ── Tarjeta de error ─────────────────────────────────────────────────
 @Composable
 private fun ErrorCard(message: String, onRetry: () -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = SurfaceColor, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFFF87171))) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = SurfaceColor.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFF87171))
+    ) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(message, color = Color(0xFFF87171))
             Spacer(modifier = Modifier.height(10.dp))
