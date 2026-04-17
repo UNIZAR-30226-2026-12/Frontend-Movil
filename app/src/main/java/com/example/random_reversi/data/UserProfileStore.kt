@@ -7,7 +7,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class UserProfileUiState(
     val username: String = "Jugador",
-    val avatarUrl: String? = null
+    val avatarUrl: String? = null,
+    val rr: Int = 0
 )
 
 object UserProfileStore {
@@ -17,7 +18,8 @@ object UserProfileStore {
     fun setFromUser(user: UserMeResponse) {
         _state.value = UserProfileUiState(
             username = user.username.ifBlank { "Jugador" },
-            avatarUrl = user.avatar_url
+            avatarUrl = user.avatar_url,
+            rr = user.elo
         )
     }
 

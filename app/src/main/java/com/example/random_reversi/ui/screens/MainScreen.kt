@@ -3,20 +3,19 @@ package com.example.random_reversi.ui.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,14 +30,18 @@ import com.example.random_reversi.utils.AvatarPresets
 @Composable
 fun MainScreen(onNavigate: (screen: String) -> Unit) {
     var showGameModeModal by remember { mutableStateOf(false) }
+
     val profile by UserProfileStore.state.collectAsState()
+
     val userName = profile.username.ifBlank { "Jugador" }
+    val userElo = profile.rr
+    val userAvatar = profile.avatarUrl
 
     LaunchedEffect(Unit) { UserProfileStore.refreshFromBackend() }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Fondo mosaico ──────────────────────────────────────────
+        // ── 1. Fondo de la App ────────────────────────────────────────
         Image(
             painter = painterResource(id = R.drawable.nuevofondomovil),
             contentDescription = null,
@@ -46,122 +49,143 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Contenido con scroll ────────────────────────────────────
+        // ── 2. Contenido Principal ────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .statusBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // ── TOP BAR ─────────────────────────────────────────────
-            Box(
+            // FILA SUPERIOR (Reglas con un poco más de espacio arriba)
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 44.dp, start = 16.dp, end = 16.dp)
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 20.dp), // Aumentado para ese "pequeñísimo espacio"
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                // Logo / título (izquierda)
-                Image(
-                    painter = painterResource(id = R.drawable.logoreversi),
-                    contentDescription = "Random Reversi",
-                    modifier = Modifier
-                        .height(56.dp)
-                        .align(Alignment.CenterStart)
+                MenuImageButton(
+                    drawableRes = R.drawable.botonreglas,
+                    contentDescription = "Reglas",
+                    modifier = Modifier.width(85.dp),
+                    onClick = { onNavigate("rules") }
                 )
-                // Avatar + cerrar sesión (derecha)
-                UserPolaroid(
+
+                UserProfileAndLogout(
                     userName = userName,
-                    avatarUrl = profile.avatarUrl,
+                    elo = userElo,
+                    avatarUrl = userAvatar,
                     onProfile = { onNavigate("profile") },
-                    onLogout  = { onNavigate("home") },
-                    modifier = Modifier.align(Alignment.CenterEnd)
+                    onLogout  = { onNavigate("home") }
                 )
             }
 
-            // ── Subtítulo ────────────────────────────────────────────
-            Text(
-                text = "Elige tu jugada",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextOnDark,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
-            )
+            Spacer(modifier = Modifier.weight(0.7f))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ── Botón: Jugar Online ──────────────────────────────────
-            MenuImageButton(
-                drawableRes = R.drawable.botonjugaronline,
-                contentDescription = "Jugar Online",
+            // LOGO
+            Image(
+                painter = painterResource(id = R.drawable.logoreversi),
+                contentDescription = "Random Reversi",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth(0.78f)
-                    .padding(vertical = 6.dp),
-                onClick = { onNavigate("online-game") }
+                    .heightIn(max = 100.dp)
             )
 
-            // ── Botón: Jugar contra la IA ────────────────────────────
-            MenuImageButton(
-                drawableRes = R.drawable.botonjugaria,
-                contentDescription = "Jugar contra la IA",
-                modifier = Modifier
-                    .fillMaxWidth(0.68f)
-                    .padding(vertical = 6.dp),
-                onClick = { showGameModeModal = true }
+            // SUBTÍTULO
+            Text(
+                text = "ELIGE TU JUGADA",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = Color.Black,
+                        offset = Offset(3f, 4f),
+                        blurRadius = 6f
+                    )
+                ),
+                modifier = Modifier.padding(top = 10.dp, bottom = 6.dp)
             )
 
-            // ── Fila: Personalización | Amigos ───────────────────────
+            Spacer(modifier = Modifier.weight(0.4f))
+
+            // ── MODOS DE JUEGO (Online e IA +10% y IA movido a la izq) ──
             Row(
                 modifier = Modifier
-                    .fillMaxWidth(0.88f)
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                    .fillMaxWidth(1f)
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MenuImageButton(
+                    drawableRes = R.drawable.botonjugaronline,
+                    contentDescription = "Jugar Online",
+                    modifier = Modifier
+                        .weight(1.25f) // Aumentado tamaño relativo
+                        .padding(end = 0.dp),
+                    onClick = { onNavigate("online-game") }
+                )
+
+                MenuImageButton(
+                    drawableRes = R.drawable.botonjugaria,
+                    contentDescription = "Jugar contra la IA",
+                    modifier = Modifier
+                        .weight(1.0f) // Aumentado tamaño relativo
+                        .padding(start = 0.dp, end = 16.dp), // Empujado a la izquierda mediante padding derecho
+                    onClick = { showGameModeModal = true }
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(0.25f))
+
+            // ── PERSONALIZACIÓN Y AMIGOS (Personalización -10%) ──
+            Row(
+                modifier = Modifier.fillMaxWidth(0.82f), // Fila más estrecha para reducir botones
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 MenuImageButton(
                     drawableRes = R.drawable.botonpersonalizacion,
                     contentDescription = "Personalización",
-                    modifier = Modifier.weight(1f).padding(end = 6.dp),
+                    modifier = Modifier
+                        .weight(0.85f) // Peso reducido para hacerlo más pequeño
+                        .padding(end = 6.dp),
                     onClick = { onNavigate("customization") }
                 )
+
                 MenuImageButton(
                     drawableRes = R.drawable.botonamigos,
                     contentDescription = "Amigos",
-                    modifier = Modifier.weight(1f).padding(start = 6.dp),
+                    modifier = Modifier
+                        .weight(0.85f)
+                        .padding(start = 6.dp)
+                        .heightIn(max = 90.dp),
                     onClick = { onNavigate("friends") }
                 )
             }
 
-            // ── Fila: Ranking | Reglas ───────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(0.88f)
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MenuImageButton(
-                    drawableRes = R.drawable.botonranking,
-                    contentDescription = "Ranking",
-                    modifier = Modifier.weight(1f).padding(end = 6.dp),
-                    onClick = { onNavigate("ranking") }
-                )
-                MenuImageButton(
-                    drawableRes = R.drawable.botonreglas,
-                    contentDescription = "Reglas del juego",
-                    modifier = Modifier.weight(1f).padding(start = 6.dp),
-                    onClick = { onNavigate("rules") }
-                )
-            }
+            Spacer(modifier = Modifier.weight(0.5f))
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // RANKING GLOBAL
+            MenuImageButton(
+                drawableRes = R.drawable.botonranking,
+                contentDescription = "Ranking Global",
+                modifier = Modifier.fillMaxWidth(0.48f),
+                onClick = { onNavigate("ranking") }
+            )
 
-            // ── Footer ───────────────────────────────────────────────
+            Spacer(modifier = Modifier.weight(1f))
+
+            // FOOTER
             Text(
                 text = "HuQ Games Studio · Universidad de Zaragoza",
-                fontSize = 11.sp,
-                color = TextOnDark.copy(alpha = 0.65f),
-                modifier = Modifier.padding(bottom = 28.dp)
+                fontSize = 10.sp,
+                color = Color.White.copy(alpha = 0.6f),
+                modifier = Modifier.padding(bottom = 12.dp)
             )
         }
     }
@@ -173,7 +197,6 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
     )
 }
 
-// ── Componente: botón que muestra un PNG a pantalla completa ─────────
 @Composable
 private fun MenuImageButton(
     drawableRes: Int,
@@ -184,87 +207,78 @@ private fun MenuImageButton(
     Image(
         painter = painterResource(id = drawableRes),
         contentDescription = contentDescription,
-        contentScale = ContentScale.FillWidth,
+        contentScale = ContentScale.Fit,
         modifier = modifier
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            )
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
     )
 }
 
-// ── Componente: avatar estilo polaroid + botón cerrar sesión ─────────
 @Composable
-private fun UserPolaroid(
+private fun UserProfileAndLogout(
     userName: String,
+    elo: Int,
     avatarUrl: String?,
     onProfile: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Row(
         modifier = modifier,
-        horizontalAlignment = Alignment.End
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Tarjeta polaroid clickable → perfil
-        Box(
+        // Perfil
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .background(Color.White, RoundedCornerShape(6.dp))
-                .padding(3.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .clickable(onClick = onProfile)
+                .padding(4.dp)
         ) {
+            Text(
+                text = userName,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                style = TextStyle(shadow = Shadow(color = Color.Black, blurRadius = 4f))
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
             val presetRes = AvatarPresets.drawableForId(avatarUrl)
-            when {
-                presetRes != null ->
-                    Image(
-                        painter = painterResource(id = presetRes),
-                        contentDescription = userName,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                    )
-                !avatarUrl.isNullOrBlank() ->
-                    AsyncImage(
-                        model = avatarUrl,
-                        contentDescription = userName,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                    )
-                else ->
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(PrimaryColor),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = userName.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
+            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))) {
+                if (presetRes != null) {
+                    Image(painter = painterResource(id = presetRes), contentDescription = null, contentScale = ContentScale.Crop)
+                } else if (!avatarUrl.isNullOrBlank()) {
+                    AsyncImage(model = avatarUrl, contentDescription = null, contentScale = ContentScale.Crop)
+                } else {
+                    Box(Modifier.fillMaxSize().background(PrimaryColor), contentAlignment = Alignment.Center) {
+                        Text(userName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
                     }
+                }
             }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = "$elo RR",
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 12.sp,
+                style = TextStyle(shadow = Shadow(color = Color.Black, blurRadius = 4f))
+            )
         }
 
-        // Botón cerrar sesión usando PNG
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // Cerrar Sesión
         Image(
             painter = painterResource(id = R.drawable.cerrarsesion),
             contentDescription = "Cerrar sesión",
-            contentScale = ContentScale.FillWidth,
             modifier = Modifier
-                .width(90.dp)
-                .padding(top = 4.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onLogout
-                )
+                .width(85.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(onClick = onLogout)
         )
     }
 }
