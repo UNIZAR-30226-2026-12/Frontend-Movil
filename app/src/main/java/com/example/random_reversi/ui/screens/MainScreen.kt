@@ -2,6 +2,7 @@ package com.example.random_reversi.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -20,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.example.random_reversi.R
 import com.example.random_reversi.data.UserProfileStore
@@ -57,18 +60,18 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // FILA SUPERIOR (Reglas con un poco más de espacio arriba)
+            // FILA SUPERIOR (Reglas a la izq, Perfil a la der)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .padding(top = 20.dp), // Aumentado para ese "pequeñísimo espacio"
+                    .padding(top = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
                 MenuImageButton(
                     drawableRes = R.drawable.botonreglas,
-                    contentDescription = "Reglas",
+                    contentDescription = "Reglas del juego",
                     modifier = Modifier.width(85.dp),
                     onClick = { onNavigate("rules") }
                 )
@@ -82,22 +85,23 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
                 )
             }
 
-            Spacer(modifier = Modifier.weight(0.7f))
+            Spacer(modifier = Modifier.weight(0.2f))
 
-            // LOGO
+            // LOGO TITULO
             Image(
                 painter = painterResource(id = R.drawable.logoreversi),
                 contentDescription = "Random Reversi",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .fillMaxWidth(0.78f)
-                    .heightIn(max = 100.dp)
+                    .fillMaxWidth(0.9f)
+                    .heightIn(max = 130.dp)
+                    .padding(bottom = 0.dp)
             )
 
             // SUBTÍTULO
             Text(
-                text = "ELIGE TU JUGADA",
-                fontSize = 22.sp,
+                text = "Elige tu jugada",
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Black,
                 color = Color.White,
                 textAlign = TextAlign.Center,
@@ -108,43 +112,38 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
                         blurRadius = 6f
                     )
                 ),
-                modifier = Modifier.padding(top = 10.dp, bottom = 6.dp)
+                modifier = Modifier.padding(bottom = 20.dp).zIndex(10f)
             )
 
-            Spacer(modifier = Modifier.weight(0.4f))
+            // ── PILA DE BOTONES DE ACCIÓN SUPERPUESTOS ──
 
-            // ── MODOS DE JUEGO (Online e IA +10% y IA movido a la izq) ──
+            // 1. Jugar Online (Arriba del todo, prioridad Z)
+            MenuImageButton(
+                drawableRes = R.drawable.botonjugaronline,
+                contentDescription = "Jugar Online",
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .zIndex(5f),
+                onClick = { onNavigate("online-game") }
+            )
+
+            // 2. Jugar contra la IA (Debajo, sube ligeramente)
+            MenuImageButton(
+                drawableRes = R.drawable.botonjugaria,
+                contentDescription = "Jugar contra la IA",
+                modifier = Modifier
+                    .fillMaxWidth(0.65f)
+                    .offset(y = (-30).dp)
+                    .zIndex(4f),
+                onClick = { showGameModeModal = true }
+            )
+
+            // 3. Fila Mixta: Personalización y Amigos juntas
             Row(
                 modifier = Modifier
-                    .fillMaxWidth(1f)
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MenuImageButton(
-                    drawableRes = R.drawable.botonjugaronline,
-                    contentDescription = "Jugar Online",
-                    modifier = Modifier
-                        .weight(1.25f) // Aumentado tamaño relativo
-                        .padding(end = 0.dp),
-                    onClick = { onNavigate("online-game") }
-                )
-
-                MenuImageButton(
-                    drawableRes = R.drawable.botonjugaria,
-                    contentDescription = "Jugar contra la IA",
-                    modifier = Modifier
-                        .weight(1.0f) // Aumentado tamaño relativo
-                        .padding(start = 0.dp, end = 16.dp), // Empujado a la izquierda mediante padding derecho
-                    onClick = { showGameModeModal = true }
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(0.25f))
-
-            // ── PERSONALIZACIÓN Y AMIGOS (Personalización -10%) ──
-            Row(
-                modifier = Modifier.fillMaxWidth(0.82f), // Fila más estrecha para reducir botones
+                    .fillMaxWidth(0.85f)
+                    .offset(y = (-55).dp)
+                    .zIndex(3f),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -152,8 +151,10 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
                     drawableRes = R.drawable.botonpersonalizacion,
                     contentDescription = "Personalización",
                     modifier = Modifier
-                        .weight(0.85f) // Peso reducido para hacerlo más pequeño
-                        .padding(end = 6.dp),
+                        .weight(1f)
+                        .padding(end = 4.dp)
+                        .offset(y = 15.dp) // desequilibrio visual intencional
+                        .rotate(-3f),
                     onClick = { onNavigate("customization") }
                 )
 
@@ -161,32 +162,14 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
                     drawableRes = R.drawable.botonamigos,
                     contentDescription = "Amigos",
                     modifier = Modifier
-                        .weight(0.85f)
-                        .padding(start = 6.dp)
-                        .heightIn(max = 90.dp),
+                        .weight(1f)
+                        .padding(start = 4.dp)
+                        .rotate(4f),
                     onClick = { onNavigate("friends") }
                 )
             }
 
-            Spacer(modifier = Modifier.weight(0.5f))
-
-            // RANKING GLOBAL
-            MenuImageButton(
-                drawableRes = R.drawable.botonranking,
-                contentDescription = "Ranking Global",
-                modifier = Modifier.fillMaxWidth(0.48f),
-                onClick = { onNavigate("ranking") }
-            )
-
             Spacer(modifier = Modifier.weight(1f))
-
-            // FOOTER
-            Text(
-                text = "HuQ Games Studio · Universidad de Zaragoza",
-                fontSize = 10.sp,
-                color = Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
         }
     }
 
@@ -225,59 +208,79 @@ private fun UserProfileAndLogout(
 ) {
     Row(
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.End
     ) {
-        // Perfil
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+        // Marco de Foto (Polaroid)
+        Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onProfile)
-                .padding(4.dp)
+                .width(85.dp)
+                .height(95.dp)
+                .rotate(-6f)
+                .clickable(onClick = onProfile),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Text(
-                text = userName,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                style = TextStyle(shadow = Shadow(color = Color.Black, blurRadius = 4f))
+            Image(
+                painter = painterResource(id = R.drawable.marcofoto),
+                contentDescription = "Marco de perfil",
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier.fillMaxSize()
             )
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            val presetRes = AvatarPresets.drawableForId(avatarUrl)
-            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))) {
-                if (presetRes != null) {
-                    Image(painter = painterResource(id = presetRes), contentDescription = null, contentScale = ContentScale.Crop)
-                } else if (!avatarUrl.isNullOrBlank()) {
-                    AsyncImage(model = avatarUrl, contentDescription = null, contentScale = ContentScale.Crop)
-                } else {
-                    Box(Modifier.fillMaxSize().background(PrimaryColor), contentAlignment = Alignment.Center) {
-                        Text(userName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 10.dp)
+            ) {
+                // Avatar interno
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(Color(0xFF264653)), // Color de fondo si no hay avatar (como la A)
+                    contentAlignment = Alignment.Center
+                ) {
+                    val presetRes = AvatarPresets.drawableForId(avatarUrl)
+                    if (presetRes != null) {
+                        Image(
+                            painter = painterResource(id = presetRes),
+                            contentDescription = "Avatar",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (!avatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = "Avatar",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            text = userName.firstOrNull()?.toString()?.lowercase() ?: "?",
+                            color = Color(0xFFE9C46A), // color amarillo de la letra A
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black
+                        )
                     }
                 }
+                Spacer(modifier = Modifier.height(6.dp))
+                // Texto de ELO
+                Text(
+                    text = "$elo RR",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
             }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = "$elo RR",
-                color = Color.White,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 12.sp,
-                style = TextStyle(shadow = Shadow(color = Color.Black, blurRadius = 4f))
-            )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Cerrar Sesión
+        // Botón Cerrar Sesión (Etiqueta recortada rota a la derecha)
         Image(
             painter = painterResource(id = R.drawable.cerrarsesion),
             contentDescription = "Cerrar sesión",
+            contentScale = ContentScale.Fit,
             modifier = Modifier
-                .width(85.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .padding(start = 2.dp, top = 8.dp)
+                .height(42.dp)
+                .rotate(4f)
                 .clickable(onClick = onLogout)
         )
     }

@@ -1,15 +1,18 @@
 package com.example.random_reversi.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +34,9 @@ fun AuthTextInput(
     onValueChange: (String) -> Unit,
     isPassword: Boolean = false,
     keyboardType: KeyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Text,
+    inputHeight: androidx.compose.ui.unit.Dp = 32.dp,
+    labelPaddingTop: androidx.compose.ui.unit.Dp = 2.dp,
+    labelPaddingBottom: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     val passwordVisible = remember { mutableStateOf(false) }
@@ -41,55 +47,58 @@ fun AuthTextInput(
         Text(
             text = label,
             fontSize = 13.sp,
-            color = TextMutedColor,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(bottom = 8.dp)
+            color = Color.Black,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = labelPaddingTop, bottom = labelPaddingBottom)
         )
 
-        OutlinedTextField(
+        BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            placeholder = {
-                Text(
-                    text = placeholder,
-                    color = TextMutedColor.copy(alpha = 0.5f),
-                    fontSize = 14.sp
-                )
-            },
+            textStyle = androidx.compose.ui.text.TextStyle(
+                color = TextColor,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Normal
+            ),
             visualTransformation = if (isPassword && !passwordVisible.value) PasswordVisualTransformation() else VisualTransformation.None,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = TextColor,
-                unfocusedTextColor = TextColor,
-                focusedBorderColor = PrimaryColor,
-                unfocusedBorderColor = BorderColor,
-                focusedContainerColor = SurfaceLightColor,
-                unfocusedContainerColor = SurfaceLightColor
-            ),
-            shape = RoundedCornerShape(8.dp),
-            trailingIcon = {
-                if (isPassword) {
-                    Text(
-                        text = if (passwordVisible.value) "👁️" else "👁️‍🗨️",
-                        modifier = Modifier
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                passwordVisible.value = !passwordVisible.value
-                            }
-                            .padding(end = 12.dp)
-                    )
+                .height(inputHeight),
+            decorationBox = { innerTextField ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(SurfaceLightColor, RoundedCornerShape(8.dp))
+                        .border(1.dp, BorderColor, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                color = TextMutedColor.copy(alpha = 0.5f),
+                                fontSize = 13.sp
+                            )
+                        }
+                        innerTextField()
+                    }
+                    if (isPassword) {
+                        Text(
+                            text = if (passwordVisible.value) "👁️" else "👁️‍🗨️",
+                            modifier = Modifier
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    passwordVisible.value = !passwordVisible.value
+                                }
+                        )
+                    }
                 }
-            },
-            singleLine = true,
-            textStyle = androidx.compose.ui.text.TextStyle(
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Normal
-            )
+            }
         )
     }
 }

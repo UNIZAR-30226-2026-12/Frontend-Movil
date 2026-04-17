@@ -1,16 +1,24 @@
 package com.example.random_reversi.ui.screens
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.example.random_reversi.R
 import com.example.random_reversi.data.AuthRepository
 import com.example.random_reversi.data.AuthResult
-import com.example.random_reversi.ui.components.AppModal
-import com.example.random_reversi.ui.components.AuthButton
-import com.example.random_reversi.ui.components.AuthFormContainer
 import com.example.random_reversi.ui.components.AuthTextInput
 import com.example.random_reversi.ui.theme.SecondaryColor
 import kotlinx.coroutines.launch
@@ -22,6 +30,8 @@ fun RegisterScreen(
     onNavigate: (screen: String) -> Unit,
     onRegisterSuccess: () -> Unit
 ) {
+    if (!isOpen) return
+
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -31,27 +41,61 @@ fun RegisterScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
-    AppModal(
-        isOpen = isOpen,
-        onClose = onClose,
-        maxWidth = 400.dp,
-        showCloseButton = true
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        AuthFormContainer(
-            title = "Crear Cuenta",
-            subtitle = "Únete a Random Reversi"
+        Box(
+            modifier = Modifier
+                .width(360.dp) // Maintain similar size reference box as login
+                .height(600.dp), // Registration has more fields, box needs to be taller
+            contentAlignment = Alignment.Center
         ) {
-            Column(
+            // Fondo Registro PNG
+            Image(
+                painter = painterResource(id = R.drawable.positregistro),
+                contentDescription = "Fondo Crear Cuenta",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .fillMaxHeight()
+                    .padding(top = 10.dp)
+            )
+
+            // Contenido Interno
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .fillMaxHeight(0.85f)
+                    .padding(top = 120.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                // Título invisible para desplazar la colisión del marco principal
+                Text(
+                    text = "Crear Cuenta".uppercase(),
+                    color = Color.Transparent,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 22.sp
+                )
+
+                // Error Ocular
+                errorMessage?.let {
+                    Text(
+                        text = it,
+                        color = SecondaryColor,
+                        fontSize = 13.sp
+                    )
+                }
+
+                // Inputs
                 AuthTextInput(
                     label = "Nombre de usuario",
                     value = username,
                     placeholder = "Tu nombre de usuario",
-                    onValueChange = { username = it }
+                    onValueChange = { username = it },
+                    keyboardType = KeyboardType.Text,
+                    modifier = Modifier.padding(start = 20.dp, end = 24.dp)
                 )
 
                 AuthTextInput(
@@ -59,7 +103,8 @@ fun RegisterScreen(
                     value = email,
                     placeholder = "usuario@ejemplo.com",
                     onValueChange = { email = it },
-                    keyboardType = KeyboardType.Email
+                    keyboardType = KeyboardType.Email,
+                    modifier = Modifier.padding(start = 20.dp, end = 24.dp)
                 )
 
                 AuthTextInput(
@@ -70,7 +115,8 @@ fun RegisterScreen(
                         password = it
                         passwordError = false
                     },
-                    isPassword = true
+                    isPassword = true,
+                    modifier = Modifier.padding(start = 20.dp, end = 24.dp)
                 )
 
                 AuthTextInput(
@@ -81,50 +127,51 @@ fun RegisterScreen(
                         confirmPassword = it
                         passwordError = false
                     },
-                    isPassword = true
+                    isPassword = true,
+                    modifier = Modifier.padding(start = 20.dp, end = 24.dp)
                 )
 
-                AuthButton(
-                    text = "Registrarse",
-                    onClick = {
-                        if (username.isNotEmpty() && email.isNotEmpty() && 
-                            password.isNotEmpty() && password == confirmPassword && !isLoading) {
-                            passwordError = false
-                            errorMessage = null
-                            isLoading = true
+                Spacer(modifier = Modifier.weight(1f))
 
-                            coroutineScope.launch {
-                                when (val result = AuthRepository.register(
-                                    username = username,
-                                    email = email,
-                                    password = password
-                                )) {
-                                    is AuthResult.Success -> {
-                                        onRegisterSuccess()
-                                        onNavigate("home")
-                                        onClose()
+                // Botón Gráfico "Registrarse" o botonantaregistro.png
+                Image(
+                    painter = painterResource(id = R.drawable.botonregistro),
+                    contentDescription = "Registrarse",
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .height(55.dp)
+                        .padding(bottom = 8.dp)
+                        .clickable(enabled = !isLoading) {
+                            if (username.isNotEmpty() && email.isNotEmpty() && 
+                                password.isNotEmpty() && password == confirmPassword && !isLoading) {
+                                passwordError = false
+                                errorMessage = null
+                                isLoading = true
+
+                                coroutineScope.launch {
+                                    when (val result = AuthRepository.register(
+                                        username = username,
+                                        email = email,
+                                        password = password
+                                    )) {
+                                        is AuthResult.Success -> {
+                                            onRegisterSuccess()
+                                            onNavigate("home")
+                                            onClose()
+                                        }
+                                        is AuthResult.Error -> {
+                                            errorMessage = result.message
+                                        }
                                     }
-                                    is AuthResult.Error -> {
-                                        errorMessage = result.message
-                                    }
+                                    isLoading = false
                                 }
-                                isLoading = false
+                            } else if (password != confirmPassword) {
+                                passwordError = true
+                                errorMessage = "Las contraseñas no coinciden"
                             }
-                        } else if (password != confirmPassword) {
-                            passwordError = true
-                            errorMessage = "Las contraseñas no coinciden"
-                        }
-                    },
-                    enabled = !isLoading,
-                    modifier = Modifier.padding(top = 8.dp)
+                        },
+                    contentScale = ContentScale.Fit
                 )
-
-                errorMessage?.let {
-                    Text(
-                        text = it,
-                        color = SecondaryColor
-                    )
-                }
             }
         }
     }

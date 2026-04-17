@@ -108,7 +108,7 @@ fun HomeScreen(
                 text = "¿Ha olvidado su contraseña?",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextOnDark,
+                color = androidx.compose.ui.graphics.Color.Black,
                 textDecoration = TextDecoration.Underline,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
