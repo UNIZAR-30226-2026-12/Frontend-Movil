@@ -1,10 +1,16 @@
-﻿package com.example.random_reversi.ui.screens
+package com.example.random_reversi.ui.screens
 
 import android.net.Uri
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +22,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,12 +45,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
+import com.example.random_reversi.R
 import com.example.random_reversi.data.FriendsRepository
 import com.example.random_reversi.data.GamesRepository
 import com.example.random_reversi.data.UserResult
@@ -54,1053 +61,1058 @@ import com.example.random_reversi.data.remote.ChatMessage
 import com.example.random_reversi.data.remote.FriendInfo
 import com.example.random_reversi.data.remote.GameInviteInfo
 import com.example.random_reversi.data.remote.PausedGameInfo
-import com.example.random_reversi.ui.components.GameModeModal
+import com.example.random_reversi.data.remote.SocialPanelResponse
 import com.example.random_reversi.ui.navigation.NavigationMessages
-import com.example.random_reversi.ui.theme.BgColor
-import com.example.random_reversi.ui.theme.BorderColor
-import com.example.random_reversi.ui.theme.PrimaryColor
-import com.example.random_reversi.ui.theme.SurfaceColor
-import com.example.random_reversi.ui.theme.SurfaceLightColor
-import com.example.random_reversi.ui.theme.TextColor
-import com.example.random_reversi.ui.theme.TextMutedColor
+import com.example.random_reversi.ui.theme.*
 import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
-private data class ToastState(
-    val message: String,
-    val type: String = "info",
-    val visible: Boolean = false
-)
-
-private fun normalizeMode(mode: String?): String = when (mode?.trim()?.lowercase()) {
-    "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
-    "1vs1", "1v1" -> "1vs1"
-    else -> "1vs1"
-}
-
-@Composable
-private fun StatCard(label: String, value: String, modifier: Modifier = Modifier, tint: Color = PrimaryColor) {
-    Surface(
-        modifier = modifier,
-        color = SurfaceColor,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(value, color = tint, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-            Text(label, color = TextMutedColor, fontSize = 11.sp)
-        }
-    }
-}
-
-@Composable
-private fun SectionCard(title: String, content: @Composable () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = SurfaceColor,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            content()
-        }
-    }
-}
-
-@Composable
-private fun EmptyState(text: String) {
-    Text(text = text, color = TextMutedColor, fontSize = 13.sp)
-}
-
-@Composable
-private fun FriendRow(
-    friend: FriendInfo,
-    onOpenProfile: () -> Unit,
-    onInvite: () -> Unit,
-    onChat: () -> Unit,
-    onRemove: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = SurfaceLightColor,
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Row(
-            modifier = Modifier
-                .clickable { onOpenProfile() }
-                .padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AvatarBadge(friend.name, friend.avatar_url)
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(friend.name, color = TextColor, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${friend.rr} RR", color = Color(0xFFFBBF24), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SmallActionButton(
-                    text = "Duelo",
-                    color = PrimaryColor,
-                    enabled = (friend.status ?: "online").lowercase() != "offline",
-                    onClick = onInvite
-                )
-                SmallActionButton(text = "Chat", color = Color(0xFF38BDF8), onClick = onChat, badge = friend.unread_count ?: 0)
-                SmallActionButton(text = "Eliminar", color = Color(0xFFF87171), onClick = onRemove)
-            }
-        }
-    }
-}
-
-@Composable
-private fun RequestRow(request: FriendInfo, onAccept: () -> Unit, onReject: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = SurfaceLightColor,
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Row(
-            modifier = Modifier.padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AvatarBadge(request.name, request.avatar_url)
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(request.name, color = TextColor, fontWeight = FontWeight.Bold)
-                Text("${request.rr} RR", color = Color(0xFFFBBF24), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            }
-            SmallActionButton(text = "OK", color = Color(0xFF4ADE80), onClick = onAccept)
-            Spacer(modifier = Modifier.width(6.dp))
-            SmallActionButton(text = "X", color = Color(0xFFF87171), onClick = onReject)
-        }
-    }
-}
-
-@Composable
-private fun InviteRow(invite: GameInviteInfo, onAccept: () -> Unit, onReject: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = SurfaceLightColor,
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Row(
-            modifier = Modifier.padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AvatarBadge(invite.name ?: "Jugador", invite.avatar_url)
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(invite.name ?: "Jugador", color = TextColor, fontWeight = FontWeight.Bold)
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "${invite.rr ?: 0} RR",
-                        color = Color(0xFFFBBF24),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Text(
-                        text = "  -  ",
-                        color = TextMutedColor,
-                        fontSize = 12.sp
-                    )
-
-                    Text(
-                        text = normalizeMode(invite.gameMode),
-                        color = Color(0xFFA78BFA),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            SmallActionButton(text = "OK", color = Color(0xFF4ADE80), onClick = onAccept)
-            Spacer(modifier = Modifier.width(6.dp))
-            SmallActionButton(text = "X", color = Color(0xFFF87171), onClick = onReject)
-        }
-    }
-}
-
-@Composable
-private fun PausedGameRow(
-    pausedGame: PausedGameInfo,
-    onResume: () -> Unit,
-    onAbandon: () -> Unit
-) {
-    val modeLabel = normalizeMode(pausedGame.mode)
-    val localUsername = pausedGame.paused_by.firstOrNull()
-    val others = pausedGame.active_players.filter { !localUsername.isNullOrBlank() && it != localUsername }
-    val waitingText = when {
-        others.isEmpty() -> "No hay jugadores activos"
-        else -> "Te están esperando"
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = SurfaceLightColor,
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Row(
-            modifier = Modifier.padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Partida pausada", color = TextColor, fontWeight = FontWeight.Bold)
-                Text("$modeLabel  •  $waitingText", color = TextMutedColor, fontSize = 12.sp)
-            }
-
-            SmallActionButton(text = "Reanudar", color = Color(0xFF4ADE80), onClick = onResume)
-            Spacer(modifier = Modifier.width(6.dp))
-            SmallActionButton(text = "Abandonar", color = Color(0xFFF87171), onClick = onAbandon)
-        }
-    }
-}
-
-@Composable
-private fun SmallActionButton(
-    text: String,
-    color: Color,
-    enabled: Boolean = true,
-    badge: Int = 0,
-    onClick: () -> Unit
-) {
-    Box {
-        Button(
-            onClick = onClick,
-            enabled = enabled,
-            colors = ButtonDefaults.buttonColors(containerColor = color, disabledContainerColor = color.copy(alpha = 0.35f)),
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.height(32.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-        ) {
-            Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-        }
-
-        if (badge > 0) {
-            Surface(
-                modifier = Modifier.align(Alignment.TopEnd).size(18.dp),
-                shape = CircleShape,
-                color = Color(0xFFEF4444),
-                border = BorderStroke(1.dp, BgColor)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (badge > 99) "99+" else badge.toString(),
-                        color = Color.White,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AvatarBadge(name: String, avatarUrl: String?) {
-    Surface(
-        modifier = Modifier.size(44.dp).clip(CircleShape),
-        shape = CircleShape,
-        color = SurfaceColor,
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        val presetRes = AvatarPresets.drawableForId(avatarUrl)
-        when {
-            presetRes != null -> {
-                androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(id = presetRes),
-                    contentDescription = "Avatar",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            !avatarUrl.isNullOrBlank() -> {
-                AsyncImage(
-                    model = avatarUrl,
-                    contentDescription = "Avatar",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            else -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(name.firstOrNull()?.uppercaseChar()?.toString() ?: "J", color = TextColor, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ToastBanner(toast: ToastState) {
-    val bg = when (toast.type) {
-        "success" -> Color(0xFF15803D)
-        "error" -> Color(0xFFB91C1C)
-        else -> Color(0xFF1D4ED8)
-    }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 22.dp),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        Surface(
-            color = bg,
-            shape = RoundedCornerShape(999.dp),
-            shadowElevation = 6.dp
-        ) {
-            Text(
-                text = toast.message,
-                color = Color.White,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-    }
-}
-
-@Composable
-private fun AddFriendDialog(
-    open: Boolean,
-    value: String,
-    sending: Boolean,
-    onValueChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onSubmit: () -> Unit
-) {
-    if (!open) return
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = SurfaceColor,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, BorderColor)
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Anadir nuevo amigo", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text("Escribe su nombre de usuario para enviar una solicitud", color = TextMutedColor, fontSize = 12.sp)
-
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    singleLine = true,
-                    label = { Text("Nombre de usuario") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryColor,
-                        unfocusedBorderColor = BorderColor,
-                        focusedTextColor = TextColor,
-                        unfocusedTextColor = TextColor,
-                        focusedLabelColor = PrimaryColor,
-                        unfocusedLabelColor = TextMutedColor
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
-                    ) {
-                        Text("Cancelar", color = Color.White)
-                    }
-                    Button(
-                        onClick = onSubmit,
-                        enabled = !sending,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
-                    ) {
-                        Text(if (sending) "Enviando..." else "Enviar", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GroupInviteDialog(
-    open: Boolean,
-    ownerFriend: FriendInfo?,
-    candidates: List<FriendInfo>,
-    selected: Set<Int>,
-    onDismiss: () -> Unit,
-    onToggle: (Int) -> Unit,
-    onConfirm: () -> Unit
-) {
-    if (!open) return
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = SurfaceColor,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, BorderColor)
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Selecciona 2 amigos extra", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(
-                    "Para iniciar 1vs1vs1vs1 con ${ownerFriend?.name ?: "tu amigo"}, elige dos jugadores mas.",
-                    color = TextMutedColor,
-                    fontSize = 12.sp
-                )
-
-                if (candidates.isEmpty()) {
-                    EmptyState("No hay amigos disponibles para completar la sala.")
-                } else {
-                    candidates.forEach { friend ->
-                        val isSelected = selected.contains(friend.id)
-                        val disabled = !isSelected && selected.size >= 2
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable(enabled = !disabled) { onToggle(friend.id) },
-                            color = if (isSelected) PrimaryColor.copy(alpha = 0.16f) else SurfaceLightColor,
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, if (isSelected) PrimaryColor else BorderColor)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                AvatarBadge(friend.name, friend.avatar_url)
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(friend.name, color = TextColor, fontWeight = FontWeight.Bold)
-                                    Text("${friend.rr} RR", color = Color(0xFFFBBF24), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Text(if (isSelected) "Seleccionado" else "", color = PrimaryColor, fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
-                    ) { Text("Cancelar", color = Color.White) }
-
-                    Button(
-                        onClick = onConfirm,
-                        enabled = selected.size == 2,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
-                    ) { Text("Invitar", color = Color.White, fontWeight = FontWeight.Bold) }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ChatDialog(
-    open: Boolean,
-    friend: FriendInfo?,
-    loading: Boolean,
-    sending: Boolean,
-    messages: List<ChatMessage>,
-    input: String,
-    onInputChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onSend: () -> Unit
-) {
-    if (!open || friend == null) return
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = SurfaceColor,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, BorderColor)
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AvatarBadge(friend.name, friend.avatar_url)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Chat con ${friend.name}", color = TextColor, fontWeight = FontWeight.Bold)
-                        Text("Mensajes privados entre amigos", color = TextMutedColor, fontSize = 12.sp)
-                    }
-                }
-
-                Surface(
-                    modifier = Modifier.fillMaxWidth().height(280.dp),
-                    color = SurfaceLightColor,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, BorderColor)
-                ) {
-                    if (loading) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = PrimaryColor)
-                        }
-                    } else if (messages.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            EmptyState("No hay mensajes aun. Empieza la conversacion.")
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(messages) { msg ->
-                                val isMine = msg.sender_id != friend.id
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start
-                                ) {
-                                    Surface(
-                                        color = if (isMine) PrimaryColor.copy(alpha = 0.22f) else Color(0xFF334155),
-                                        shape = RoundedCornerShape(10.dp),
-                                        border = BorderStroke(1.dp, BorderColor)
-                                    ) {
-                                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                                            Text(msg.message, color = TextColor, fontSize = 13.sp)
-                                            Text(
-                                                formatChatTime(msg.timestamp),
-                                                color = TextMutedColor,
-                                                fontSize = 10.sp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = onInputChange,
-                    label = { Text("Escribe un mensaje...") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryColor,
-                        unfocusedBorderColor = BorderColor,
-                        focusedTextColor = TextColor,
-                        unfocusedTextColor = TextColor,
-                        focusedLabelColor = PrimaryColor,
-                        unfocusedLabelColor = TextMutedColor
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
-                    ) { Text("Cerrar", color = Color.White) }
-
-                    Button(
-                        onClick = onSend,
-                        enabled = !sending && input.trim().isNotBlank(),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
-                    ) {
-                        Text(if (sending) "Enviando..." else "Enviar", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun formatChatTime(raw: String): String {
-    return try {
-        val input = when {
-            raw.contains("T") -> SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            else -> SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        }
-        val parsed: Date = input.parse(raw.substring(0, 19)) ?: return raw.take(5)
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(parsed)
-    } catch (_: Exception) {
-        raw.take(5)
-    }
-}
+// ══════════════════════════════════════════════════════════════════════
+//  FriendsScreen – Layout fiel al mockup con PNGs ilustrados
+// ══════════════════════════════════════════════════════════════════════
 
 @Composable
 fun FriendsScreen(onNavigate: (String) -> Unit) {
+
     val scope = rememberCoroutineScope()
 
-    var friends by remember { mutableStateOf<List<FriendInfo>>(emptyList()) }
-    var requests by remember { mutableStateOf<List<FriendInfo>>(emptyList()) }
-    var invites by remember { mutableStateOf<List<GameInviteInfo>>(emptyList()) }
-    var pausedGames by remember { mutableStateOf<List<PausedGameInfo>>(emptyList()) }
+    // ── Estado principal ──────────────────────────────────────────────
+    var panel by remember { mutableStateOf<SocialPanelResponse?>(null) }
     var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
 
-    var showAddDialog by remember { mutableStateOf(false) }
-    var addUsername by remember { mutableStateOf("") }
-    var sendingRequest by remember { mutableStateOf(false) }
+    // ── Diálogo "Añadir amigo" ────────────────────────────────────────
+    var showAddFriendDialog by remember { mutableStateOf(false) }
+    var addFriendUsername by remember { mutableStateOf("") }
+    var addFriendError by remember { mutableStateOf<String?>(null) }
+    var addFriendSuccess by remember { mutableStateOf<String?>(null) }
+    var addFriendLoading by remember { mutableStateOf(false) }
 
-    var selectedFriend by remember { mutableStateOf<FriendInfo?>(null) }
-    var showModeDialog by remember { mutableStateOf(false) }
-    var showGroupDialog by remember { mutableStateOf(false) }
-    var selectedExtraFriendIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
-
-    var showChatDialog by remember { mutableStateOf(false) }
+    // ── Chat abierto ──────────────────────────────────────────────────
     var chatFriend by remember { mutableStateOf<FriendInfo?>(null) }
     var chatMessages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var chatInput by remember { mutableStateOf("") }
     var chatLoading by remember { mutableStateOf(false) }
-    var chatSending by remember { mutableStateOf(false) }
 
-    var toast by remember { mutableStateOf(ToastState("")) }
-    var hasLoadedPanel by remember { mutableStateOf(false) }
-    var seenInviteIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    // ── Toast ─────────────────────────────────────────────────────────
+    var toastMessage by remember { mutableStateOf<String?>(null) }
 
-    fun showToast(message: String, type: String = "info") {
+    // ── Funciones de carga ────────────────────────────────────────────
+    fun loadPanel() {
         scope.launch {
-            toast = ToastState(message = message, type = type, visible = true)
-            delay(2600)
-            toast = toast.copy(visible = false)
-        }
-    }
-
-    fun setUnreadCount(friendId: Int, unread: Int) {
-        friends = friends.map { if (it.id == friendId) it.copy(unread_count = unread) else it }
-    }
-
-    fun loadPanel(showSpinner: Boolean) {
-        scope.launch {
-            if (showSpinner) loading = true
+            loading = true
+            error = null
             when (val result = FriendsRepository.getSocialPanel()) {
-                is UserResult.Success -> {
-                    friends = result.data.friends
-                    requests = result.data.requests
-                    invites = result.data.gameRequests
-                    pausedGames = result.data.pausedGames
-                    val currentIds = result.data.gameRequests.map { it.lobby_id }.toSet()
-                    val newInvites = result.data.gameRequests.filter { !seenInviteIds.contains(it.lobby_id) }
-                    if (hasLoadedPanel && newInvites.isNotEmpty()) {
-                        val firstInvite = newInvites.first()
-                        val sender = firstInvite.name ?: "Un amigo"
-                        val modeLabel = normalizeMode(firstInvite.gameMode)
-                        showToast(
-                            "$sender te ha invitado a jugar una partida $modeLabel, puedes aceptarla desde la pestana de amigos.",
-                            "info"
-                        )
-                    }
-                    seenInviteIds = currentIds
-                    hasLoadedPanel = true
-                }
-                is UserResult.Error -> showToast(result.message, "error")
+                is UserResult.Success -> panel = result.data
+                is UserResult.Error -> error = result.message
             }
-            if (showSpinner) loading = false
+            loading = false
         }
     }
 
-    fun openChat(friend: FriendInfo) {
-        chatFriend = friend
-        chatInput = ""
-        showChatDialog = true
-        scope.launch {
-            chatLoading = true
-            when (val result = FriendsRepository.getChatHistory(friend.id)) {
-                is UserResult.Success -> {
-                    chatMessages = result.data
-                    FriendsRepository.markChatRead(friend.id)
-                    setUnreadCount(friend.id, 0)
-                }
-                is UserResult.Error -> showToast(result.message, "error")
-            }
-            chatLoading = false
-        }
+    fun showToast(msg: String) {
+        toastMessage = msg
     }
 
+    // ── Carga inicial + polling ──────────────────────────────────────
     LaunchedEffect(Unit) {
-        loadPanel(showSpinner = true)
+        // Consumir toast de navegación si existe
+        NavigationMessages.consumeFriendsToast()?.let { toastMessage = it }
+        loadPanel()
     }
 
-    LaunchedEffect(Unit) {
-        NavigationMessages.consumeFriendsToast()?.let { message ->
-            showToast(message, "info")
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        while (isActive) {
+    LaunchedEffect(panel) {
+        while (true) {
             delay(5000)
-            loadPanel(showSpinner = false)
-        }
-    }
-
-    LaunchedEffect(showChatDialog, chatFriend?.id) {
-        if (!showChatDialog || chatFriend == null) return@LaunchedEffect
-        while (isActive && showChatDialog && chatFriend != null) {
-            delay(3000)
-            when (val result = FriendsRepository.getChatHistory(chatFriend!!.id)) {
-                is UserResult.Success -> {
-                    chatMessages = result.data
-                    FriendsRepository.markChatRead(chatFriend!!.id)
-                    setUnreadCount(chatFriend!!.id, 0)
-                }
-                is UserResult.Error -> {}
+            when (val result = FriendsRepository.getSocialPanel()) {
+                is UserResult.Success -> panel = result.data
+                is UserResult.Error -> Unit
             }
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BgColor)
-    ) {
+    // Auto-dismiss toast
+    LaunchedEffect(toastMessage) {
+        if (toastMessage == null) return@LaunchedEffect
+        delay(2800)
+        toastMessage = null
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  Layout principal
+    // ══════════════════════════════════════════════════════════════════
+
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // ── Fondo ────────────────────────────────────────────────────
+        Image(
+            painter = painterResource(id = R.drawable.nuevofondomovil),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // ── Contenido scrollable ─────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(44.dp))
 
+            // ── Cabecera: título + botón añadir amigo ────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Amigos", color = TextColor, fontWeight = FontWeight.ExtraBold, fontSize = 30.sp)
-                    Text("Conecta y juega con tus amigos", color = TextMutedColor, fontSize = 13.sp)
-                }
-                Button(
-                    onClick = { showAddDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("Anadir", color = Color.White, fontWeight = FontWeight.Bold)
-                }
+                // Título PNG "Amigos"
+                Image(
+                    painter = painterResource(id = R.drawable.amigostitulo),
+                    contentDescription = "Amigos",
+                    contentScale = ContentScale.FillWidth,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Botón "Añadir amigo" PNG
+                Image(
+                    painter = painterResource(id = R.drawable.botonaadiramigo),
+                    contentDescription = "Añadir amigo",
+                    contentScale = ContentScale.FillHeight,
+                    modifier = Modifier
+                        .height(40.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                addFriendUsername = ""
+                                addFriendError = null
+                                addFriendSuccess = null
+                                showAddFriendDialog = true
+                            }
+                        )
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            if (loading) {
+            if (loading && panel == null) {
+                // Estado de carga
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = PrimaryColor)
+                }
+            } else if (error != null && panel == null) {
+                // Estado de error
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = SurfaceColor,
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, BorderColor)
+                    color = SurfaceColor.copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = PrimaryColor)
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(error ?: "Error desconocido", color = Color(0xFFF87171), fontSize = 14.sp)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = { loadPanel() },
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                        ) {
+                            Text("Reintentar", color = Color.White)
+                        }
                     }
                 }
             } else {
-                SectionCard("Tus amigos (${friends.size})") {
-                    if (friends.isEmpty()) {
-                        EmptyState("No tienes amigos agregados todavia.")
-                    } else {
-                        friends.forEach { friend ->
-                            FriendRow(
-                                friend = friend,
-                                onOpenProfile = {
-                                    val encodedName = Uri.encode(friend.name)
-                                    onNavigate("profile/${friend.id}/$encodedName")
-                                },
-                                onInvite = {
-                                    selectedFriend = friend
-                                    showModeDialog = true
-                                },
-                                onChat = { openChat(friend) },
-                                onRemove = {
-                                    scope.launch {
-                                        when (val result = FriendsRepository.removeFriend(friend.id)) {
-                                            is UserResult.Success -> {
-                                                friends = friends.filter { it.id != friend.id }
-                                                loadPanel(showSpinner = false)
-                                                showToast("${friend.name} eliminado de tus amigos", "info")
+                val data = panel ?: SocialPanelResponse(
+                    friends = emptyList(),
+                    requests = emptyList(),
+                    gameRequests = emptyList(),
+                    pausedGames = emptyList()
+                )
+
+                // ═══════════════════════════════════════════════════════
+                //  1. TUS AMIGOS – contenido superpuesto al PNG
+                // ═══════════════════════════════════════════════════════
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Fondo: listaamigos.png ocupa todo el ancho
+                    Image(
+                        painter = painterResource(id = R.drawable.listaamigos),
+                        contentDescription = null,
+                        contentScale = ContentScale.FillWidth,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Contenido superpuesto (solo cuando hay amigos)
+                    if (data.friends.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 48.dp, start = 20.dp, end = 20.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            data.friends.forEach { friend ->
+                                FriendRow(
+                                    friend = friend,
+                                    onProfile = {
+                                        val encoded = Uri.encode(friend.name)
+                                        onNavigate("profile/${friend.id}/$encoded/friends")
+                                    },
+                                    onChat = {
+                                        chatFriend = friend
+                                        chatLoading = true
+                                        scope.launch {
+                                            when (val result = FriendsRepository.getChatHistory(friend.id)) {
+                                                is UserResult.Success -> chatMessages = result.data
+                                                is UserResult.Error -> chatMessages = emptyList()
                                             }
-                                            is UserResult.Error -> showToast(result.message, "error")
+                                            FriendsRepository.markChatRead(friend.id)
+                                            chatLoading = false
+                                        }
+                                    },
+                                    onInvite1v1 = {
+                                        scope.launch {
+                                            when (val result = GamesRepository.inviteFriends("1vs1", listOf(friend.id))) {
+                                                is UserResult.Success -> {
+                                                    showToast("Invitación enviada a ${friend.name}")
+                                                    onNavigate("waiting-room/1vs1/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
+                                                }
+                                                is UserResult.Error -> showToast(result.message)
+                                            }
+                                        }
+                                    },
+                                    onInvite4p = {
+                                        scope.launch {
+                                            when (val result = GamesRepository.inviteFriends("1vs1vs1vs1", listOf(friend.id))) {
+                                                is UserResult.Success -> {
+                                                    showToast("Invitación enviada a ${friend.name}")
+                                                    onNavigate("waiting-room/1vs1vs1vs1/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
+                                                }
+                                                is UserResult.Error -> showToast(result.message)
+                                            }
+                                        }
+                                    },
+                                    onRemove = {
+                                        scope.launch {
+                                            when (FriendsRepository.removeFriend(friend.id)) {
+                                                is UserResult.Success -> {
+                                                    showToast("Amigo eliminado")
+                                                    loadPanel()
+                                                }
+                                                is UserResult.Error -> showToast("Error al eliminar")
+                                            }
                                         }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                // ═══════════════════════════════════════════════════════
+                //  2. SOLICITUDES DE AMISTAD – superpuesto en solicitudes.png
+                // ═══════════════════════════════════════════════════════
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Fondo: solicitudes.png
+                    Image(
+                        painter = painterResource(id = R.drawable.solicitudes),
+                        contentDescription = "Solicitudes",
+                        contentScale = ContentScale.FillWidth,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-                SectionCard("Solicitudes de amistad (${requests.size})") {
-                    if (requests.isEmpty()) {
-                        EmptyState("Sin solicitudes de amistad")
+                    // Contenido superpuesto
+                    if (data.requests.isEmpty()) {
+                        // Estado vacío: sinsolicitudesamistad.png superpuesto
+                        Image(
+                            painter = painterResource(id = R.drawable.sinsolicitudesamistad),
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(top = 45.dp, bottom = 12.dp)
+                                .fillMaxWidth(0.45f)
+                        )
                     } else {
-                        requests.forEach { request ->
-                            RequestRow(
-                                request = request,
-                                onAccept = {
-                                    scope.launch {
-                                        when (val result = FriendsRepository.acceptFriendRequest(request.id)) {
-                                            is UserResult.Success -> {
-                                                requests = requests.filter { it.id != request.id }
-                                                loadPanel(showSpinner = false)
-                                                showToast("Ahora eres amigo de ${request.name}", "success")
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 48.dp, start = 20.dp, end = 20.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            data.requests.forEach { req ->
+                                RequestRow(
+                                    friend = req,
+                                    onAccept = {
+                                        scope.launch {
+                                            when (FriendsRepository.acceptFriendRequest(req.id)) {
+                                                is UserResult.Success -> {
+                                                    showToast("${req.name} añadido como amigo")
+                                                    loadPanel()
+                                                }
+                                                is UserResult.Error -> showToast("Error al aceptar")
                                             }
-                                            is UserResult.Error -> showToast(result.message, "error")
+                                        }
+                                    },
+                                    onReject = {
+                                        scope.launch {
+                                            when (FriendsRepository.rejectFriendRequest(req.id)) {
+                                                is UserResult.Success -> {
+                                                    showToast("Solicitud rechazada")
+                                                    loadPanel()
+                                                }
+                                                is UserResult.Error -> showToast("Error al rechazar")
+                                            }
                                         }
                                     }
-                                },
-                                onReject = {
-                                    scope.launch {
-                                        when (val result = FriendsRepository.rejectFriendRequest(request.id)) {
-                                            is UserResult.Success -> {
-                                                requests = requests.filter { it.id != request.id }
-                                                showToast("Solicitud de ${request.name} rechazada", "info")
-                                            }
-                                            is UserResult.Error -> showToast(result.message, "error")
-                                        }
-                                    }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                SectionCard("Solicitudes de juego (${invites.size})") {
-                    if (invites.isEmpty()) {
-                        EmptyState("Sin solicitudes de juego")
+                // ═══════════════════════════════════════════════════════
+                //  3. SOLICITUDES DE JUEGO – contenido superpuesto
+                // ═══════════════════════════════════════════════════════
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.solicitudesjuego),
+                        contentDescription = null,
+                        contentScale = ContentScale.FillWidth,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Contenido superpuesto
+                    if (data.gameRequests.isEmpty()) {
+                        // Estado vacío: sinsolicitudesjuego.png superpuesto
+                        Image(
+                            painter = painterResource(id = R.drawable.sinsolicitudesjuego),
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(top = 45.dp, bottom = 12.dp)
+                                .fillMaxWidth(0.45f)
+                        )
                     } else {
-                        invites.forEach { invite ->
-                            InviteRow(
-                                invite = invite,
-                                onAccept = {
-                                    scope.launch {
-                                        when (val result = GamesRepository.acceptGameInvite(invite.lobby_id)) {
-                                            is UserResult.Success -> {
-                                                invites = invites.filter { it.lobby_id != invite.lobby_id }
-                                                showToast("Aceptando partida...", "success")
-                                                val encodedName = Uri.encode(invite.name ?: "Un jugador")
-                                                onNavigate("waiting-room/${normalizeMode(invite.gameMode)}/${result.data}/friends/$encodedName")
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 48.dp, start = 20.dp, end = 20.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            data.gameRequests.forEach { invite ->
+                                GameInviteRow(
+                                    invite = invite,
+                                    onAccept = {
+                                        scope.launch {
+                                            when (val result = GamesRepository.acceptGameInvite(invite.lobby_id)) {
+                                                is UserResult.Success -> {
+                                                    val gameId = result.data
+                                                    val mode = when (invite.gameMode?.lowercase()) {
+                                                        "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
+                                                        else -> "1vs1"
+                                                    }
+                                                    onNavigate("waiting-room/$mode/$gameId/friends")
+                                                }
+                                                is UserResult.Error -> showToast(result.message)
                                             }
-                                            is UserResult.Error -> showToast(result.message, "error")
+                                        }
+                                    },
+                                    onReject = {
+                                        scope.launch {
+                                            when (GamesRepository.rejectGameInvite(invite.lobby_id)) {
+                                                is UserResult.Success -> {
+                                                    showToast("Invitación rechazada")
+                                                    loadPanel()
+                                                }
+                                                is UserResult.Error -> showToast("Error al rechazar")
+                                            }
                                         }
                                     }
-                                },
-                                onReject = {
-                                    scope.launch {
-                                        when (val result = GamesRepository.rejectGameInvite(invite.lobby_id)) {
-                                            is UserResult.Success -> {
-                                                invites = invites.filter { it.lobby_id != invite.lobby_id }
-                                                showToast("Invitacion rechazada", "info")
-                                            }
-                                            is UserResult.Error -> showToast(result.message, "error")
-                                        }
-                                    }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                SectionCard("Partidas pausadas (${pausedGames.size})") {
-                    if (pausedGames.isEmpty()) {
-                        EmptyState("No tienes partidas pausadas activas.")
+                // ═══════════════════════════════════════════════════════
+                //  4. PARTIDAS PAUSADAS – contenido superpuesto
+                // ═══════════════════════════════════════════════════════
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.partidaspausadas),
+                        contentDescription = null,
+                        contentScale = ContentScale.FillWidth,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Contenido superpuesto
+                    if (data.pausedGames.isEmpty()) {
+                        // Estado vacío: sinpausadas.png superpuesto
+                        Image(
+                            painter = painterResource(id = R.drawable.sinpausadas),
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(top = 40.dp)
+                                .fillMaxWidth(0.6f)
+                        )
                     } else {
-                        pausedGames.forEach { pausedGame ->
-                            PausedGameRow(
-                                pausedGame = pausedGame,
-                                onResume = {
-                                    val mode = normalizeMode(pausedGame.mode)
-                                    val route = if (mode == "1vs1") {
-                                        "game-1vs1/${pausedGame.game_id}/friends"
-                                    } else {
-                                        "game-1vs1vs1vs1/${pausedGame.game_id}/friends"
-                                    }
-                                    onNavigate(route)
-                                },
-                                onAbandon = {
-                                    scope.launch {
-                                        when (val result = GamesRepository.leaveLobby(pausedGame.game_id)) {
-                                            is UserResult.Success -> {
-                                                showToast(result.data, "info")
-                                                loadPanel(showSpinner = false)
-                                            }
-                                            is UserResult.Error -> showToast(result.message, "error")
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 48.dp, start = 20.dp, end = 20.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            data.pausedGames.forEach { paused ->
+                                PausedGameRow(
+                                    game = paused,
+                                    onResume = {
+                                        val mode = when (paused.mode.lowercase()) {
+                                            "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
+                                            else -> "1vs1"
                                         }
+                                        onNavigate("waiting-room/$mode/${paused.game_id}/friends")
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            Button(
-                onClick = { onNavigate("menu") },
-                modifier = Modifier.fillMaxWidth(0.72f).height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Volver al menu", color = Color.White, fontWeight = FontWeight.Bold)
-            }
+            // ── Botón volver al menú (PNG) ───────────────────────────
+            Image(
+                painter = painterResource(id = R.drawable.botonvolvermenu),
+                contentDescription = "Volver al menú",
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { onNavigate("menu") }
+                    )
+            )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(28.dp))
         }
 
-        if (toast.visible) {
-            ToastBanner(toast)
+        // ── Toast overlay ────────────────────────────────────────────
+        AnimatedVisibility(
+            visible = toastMessage != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 56.dp)
+        ) {
+            Surface(
+                color = Color(0xFF1D4ED8),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = toastMessage ?: "",
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 
-    AddFriendDialog(
-        open = showAddDialog,
-        value = addUsername,
-        sending = sendingRequest,
-        onValueChange = { addUsername = it },
-        onDismiss = {
-            showAddDialog = false
-            addUsername = ""
-        },
-        onSubmit = {
-            val username = addUsername.trim()
-            if (username.isBlank()) {
-                showToast("Escribe un nombre de usuario", "error")
-                return@AddFriendDialog
-            }
-            scope.launch {
-                sendingRequest = true
-                when (val result = FriendsRepository.sendFriendRequest(username)) {
-                    is UserResult.Success -> {
-                        showToast("Solicitud enviada a $username", "success")
-                        addUsername = ""
-                        showAddDialog = false
-                    }
-                    is UserResult.Error -> showToast(result.message, "error")
-                }
-                sendingRequest = false
-            }
-        }
-    )
+    // ══════════════════════════════════════════════════════════════════
+    //  Diálogos
+    // ══════════════════════════════════════════════════════════════════
 
-    GameModeModal(
-        isOpen = showModeDialog,
-        onClose = { showModeDialog = false },
-        title = "Retar a un duelo",
-        subtitle = "Que modo de juego quieres jugar contra ${selectedFriend?.name ?: "tu amigo"}?",
-        onSelectMode = { rawMode ->
-            val mode = normalizeMode(rawMode)
-            val friend = selectedFriend ?: return@GameModeModal
-            if (mode == "1vs1vs1vs1") {
-                showModeDialog = false
-                selectedExtraFriendIds = emptySet()
-                showGroupDialog = true
-                return@GameModeModal
-            }
-            scope.launch {
-                showModeDialog = false
-                when (val result = GamesRepository.inviteFriends(mode, listOf(friend.id))) {
-                    is UserResult.Success -> {
-                        showToast("Invitacion enviada", "success")
-                        val encodedName = Uri.encode(friend.name)
-                        onNavigate("waiting-room/$mode/${result.data.game_id}/friends/$encodedName")
+    // ── Diálogo: Añadir amigo ────────────────────────────────────────
+    if (showAddFriendDialog) {
+        Dialog(onDismissRequest = { showAddFriendDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = SurfaceColor
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Añadir amigo",
+                        color = TextColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                    OutlinedTextField(
+                        value = addFriendUsername,
+                        onValueChange = {
+                            addFriendUsername = it
+                            addFriendError = null
+                            addFriendSuccess = null
+                        },
+                        label = { Text("Nombre de usuario") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryColor,
+                            unfocusedBorderColor = BorderColor,
+                            focusedLabelColor = PrimaryColor,
+                            unfocusedLabelColor = TextMutedColor,
+                            focusedTextColor = TextColor,
+                            unfocusedTextColor = TextColor,
+                            cursorColor = PrimaryColor
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (!addFriendError.isNullOrBlank()) {
+                        Text(addFriendError!!, color = Color(0xFFF87171), fontSize = 12.sp)
                     }
-                    is UserResult.Error -> showToast(result.message, "error")
-                }
-            }
-        }
-    )
-
-    GroupInviteDialog(
-        open = showGroupDialog,
-        ownerFriend = selectedFriend,
-        candidates = friends.filter { it.id != selectedFriend?.id },
-        selected = selectedExtraFriendIds,
-        onDismiss = {
-            showGroupDialog = false
-            selectedExtraFriendIds = emptySet()
-        },
-        onToggle = { friendId ->
-            selectedExtraFriendIds = if (selectedExtraFriendIds.contains(friendId)) {
-                selectedExtraFriendIds - friendId
-            } else {
-                if (selectedExtraFriendIds.size >= 2) selectedExtraFriendIds else selectedExtraFriendIds + friendId
-            }
-        },
-        onConfirm = {
-            val owner = selectedFriend ?: return@GroupInviteDialog
-            if (selectedExtraFriendIds.size != 2) {
-                showToast("Selecciona exactamente 2 amigos mas", "error")
-                return@GroupInviteDialog
-            }
-            scope.launch {
-                val ids = listOf(owner.id) + selectedExtraFriendIds.toList()
-                when (val result = GamesRepository.inviteFriends("1vs1vs1vs1", ids)) {
-                    is UserResult.Success -> {
-                        showGroupDialog = false
-                        selectedExtraFriendIds = emptySet()
-                        showToast("Invitaciones enviadas", "success")
-                        onNavigate("waiting-room/1vs1vs1vs1/${result.data.game_id}/friends")
+                    if (!addFriendSuccess.isNullOrBlank()) {
+                        Text(addFriendSuccess!!, color = AccentGreen, fontSize = 12.sp)
                     }
-                    is UserResult.Error -> showToast(result.message, "error")
-                }
-            }
-        }
-    )
-
-    ChatDialog(
-        open = showChatDialog,
-        friend = chatFriend,
-        loading = chatLoading,
-        sending = chatSending,
-        messages = chatMessages,
-        input = chatInput,
-        onInputChange = { chatInput = it },
-        onDismiss = {
-            showChatDialog = false
-            chatFriend = null
-            chatMessages = emptyList()
-            chatInput = ""
-        },
-        onSend = {
-            val friend = chatFriend ?: return@ChatDialog
-            val text = chatInput.trim()
-            if (text.isBlank() || chatSending) return@ChatDialog
-            scope.launch {
-                chatSending = true
-                when (val result = FriendsRepository.sendChatMessage(friend.id, text)) {
-                    is UserResult.Success -> {
-                        chatInput = ""
-                        when (val refresh = FriendsRepository.getChatHistory(friend.id)) {
-                            is UserResult.Success -> chatMessages = refresh.data
-                            is UserResult.Error -> {}
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { showAddFriendDialog = false },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = BorderColor),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Cancelar", color = TextColor)
+                        }
+                        Button(
+                            onClick = {
+                                if (addFriendUsername.isBlank()) {
+                                    addFriendError = "Introduce un nombre"
+                                    return@Button
+                                }
+                                addFriendLoading = true
+                                scope.launch {
+                                    when (val result = FriendsRepository.sendFriendRequest(addFriendUsername.trim())) {
+                                        is UserResult.Success -> {
+                                            addFriendSuccess = result.data
+                                            addFriendUsername = ""
+                                            loadPanel()
+                                        }
+                                        is UserResult.Error -> addFriendError = result.message
+                                    }
+                                    addFriendLoading = false
+                                }
+                            },
+                            enabled = !addFriendLoading,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                if (addFriendLoading) "Enviando..." else "Enviar",
+                                color = Color.White
+                            )
                         }
                     }
-                    is UserResult.Error -> showToast(result.message, "error")
                 }
-                chatSending = false
             }
         }
-    )
+    }
+
+    // ── Diálogo: Chat ────────────────────────────────────────────────
+    if (chatFriend != null) {
+        ChatDialog(
+            friend = chatFriend!!,
+            messages = chatMessages,
+            loading = chatLoading,
+            input = chatInput,
+            onInputChange = { chatInput = it },
+            onSend = {
+                if (chatInput.isBlank()) return@ChatDialog
+                val msg = chatInput.trim()
+                chatInput = ""
+                scope.launch {
+                    when (val result = FriendsRepository.sendChatMessage(chatFriend!!.id, msg)) {
+                        is UserResult.Success -> {
+                            chatMessages = chatMessages + result.data
+                        }
+                        is UserResult.Error -> showToast(result.message)
+                    }
+                }
+            },
+            onClose = {
+                chatFriend = null
+                chatMessages = emptyList()
+                chatInput = ""
+            }
+        )
+    }
+}
+
+
+// ══════════════════════════════════════════════════════════════════════
+//  Fila de amigo (con acciones expandibles)
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun FriendRow(
+    friend: FriendInfo,
+    onProfile: () -> Unit,
+    onChat: () -> Unit,
+    onInvite1v1: () -> Unit,
+    onInvite4p: () -> Unit,
+    onRemove: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded }
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Avatar
+            AvatarSmall(friend.avatar_url, friend.name)
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Nombre
+            Text(
+                friend.name,
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(0.6f)
+            )
+
+            // RR (Estilo Píldora)
+            Surface(
+                color = Color(0xFFFBBF24), // Amarillo del mockup
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    "${friend.rr} RR",
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+            Spacer(modifier = Modifier.weight(0.1f))
+
+            // Indicador de mensajes
+            val unread = friend.unread_count ?: 0
+            if (unread > 0) {
+                Surface(
+                    color = PrimaryColor,
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = if (unread > 9) "9+" else "$unread",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                    )
+                }
+            } else {
+                // Status simple si no hay notificaciones
+                val statusColor = when (friend.status?.lowercase()) {
+                    "online" -> Color(0xFF4ADE80)
+                    "playing" -> Color(0xFFFBBF24)
+                    else -> Color(0xFF9CA3AF)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(statusColor)
+                )
+            }
+        }
+
+        // Acciones expandibles
+        AnimatedVisibility(visible = expanded) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                ActionButton("Perfil", AccentGreen, Modifier.weight(1f)) { onProfile() }
+                ActionButton("Chat", Color(0xFF3B82F6), Modifier.weight(1f)) { onChat() }
+                ActionButton("1v1", SecondaryColor, Modifier.weight(1f)) { onInvite1v1() }
+                ActionButton("4P", Color(0xFF8B5CF6), Modifier.weight(1f)) { onInvite4p() }
+                ActionButton("✕", Color(0xFFF87171), Modifier.weight(0.5f)) { onRemove() }
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Fila de solicitud de amistad
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun RequestRow(
+    friend: FriendInfo,
+    onAccept: () -> Unit,
+    onReject: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AvatarSmall(friend.avatar_url, friend.name)
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        Text(
+            friend.name,
+            color = TextColor,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(0.6f)
+        )
+        
+        Surface(
+            color = Color(0xFFFBBF24),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                "${friend.rr} RR",
+                color = Color.Black,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.weight(0.1f))
+        
+        ActionButton("✓", AccentGreen, Modifier.width(36.dp)) { onAccept() }
+        Spacer(modifier = Modifier.width(4.dp))
+        ActionButton("✕", Color(0xFFF87171), Modifier.width(36.dp)) { onReject() }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Fila de invitación de juego
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun GameInviteRow(
+    invite: GameInviteInfo,
+    onAccept: () -> Unit,
+    onReject: () -> Unit
+) {
+    val modeLabel = when (invite.gameMode?.lowercase()) {
+        "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
+        else -> "1vs1"
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AvatarSmall(invite.avatar_url, invite.name ?: "?")
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                invite.name ?: "Desconocido",
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text("Modo: $modeLabel", color = TextMutedColor, fontSize = 11.sp)
+        }
+        ActionButton("Unirse", AccentGreen) { onAccept() }
+        Spacer(modifier = Modifier.width(4.dp))
+        ActionButton("✕", Color(0xFFF87171), Modifier.width(36.dp)) { onReject() }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Fila de partida pausada
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun PausedGameRow(
+    game: PausedGameInfo,
+    onResume: () -> Unit
+) {
+    val modeLabel = when (game.mode.lowercase()) {
+        "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
+        else -> "1vs1"
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "Partida $modeLabel",
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+            if (game.participants.isNotEmpty()) {
+                Text(
+                    "Con: ${game.participants.joinToString(", ")}",
+                    color = TextMutedColor,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        ActionButton("Reanudar", AccentGreen) { onResume() }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Diálogo Chat
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun ChatDialog(
+    friend: FriendInfo,
+    messages: List<ChatMessage>,
+    loading: Boolean,
+    input: String,
+    onInputChange: (String) -> Unit,
+    onSend: () -> Unit,
+    onClose: () -> Unit
+) {
+    Dialog(onDismissRequest = onClose) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(420.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = SurfaceColor
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AvatarSmall(friend.avatar_url, friend.name)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        friend.name,
+                        color = TextColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "✕",
+                        color = TextMutedColor,
+                        fontSize = 20.sp,
+                        modifier = Modifier.clickable(onClick = onClose)
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Mensajes
+                if (loading) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = PrimaryColor, modifier = Modifier.size(32.dp))
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        if (messages.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "No hay mensajes aún.\n¡Saluda!",
+                                    color = TextMutedColor,
+                                    textAlign = TextAlign.Center,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        } else {
+                            messages.forEach { msg ->
+                                val isMine = msg.sender_id != friend.id
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 3.dp),
+                                    horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start
+                                ) {
+                                    Surface(
+                                        color = if (isMine) PrimaryColor.copy(alpha = 0.15f) else Color(0xFFE8E0D0),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text(
+                                            msg.message,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            color = TextColor,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Input
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = onInputChange,
+                        placeholder = { Text("Escribe un mensaje…", fontSize = 13.sp) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryColor,
+                            unfocusedBorderColor = BorderColor,
+                            focusedTextColor = TextColor,
+                            unfocusedTextColor = TextColor,
+                            cursorColor = PrimaryColor
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = onSend,
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Enviar", color = Color.White, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Componentes auxiliares
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun AvatarSmall(avatarUrl: String?, name: String) {
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(Color.White)
+            .border(1.5.dp, Color.Black, CircleShape)
+    ) {
+        val presetRes = AvatarPresets.drawableForId(avatarUrl)
+        when {
+            presetRes != null -> Image(
+                painter = painterResource(presetRes),
+                contentDescription = name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            !avatarUrl.isNullOrBlank() -> AsyncImage(
+                model = avatarUrl,
+                contentDescription = name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            else -> Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(PrimaryColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionButton(
+    label: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(32.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = color),
+        shape = RoundedCornerShape(8.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+    ) {
+        Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// ── Fila auxiliar para stats (reutilizada del ProfileScreen) ──────────
+@Composable
+private fun StatRow(label: String, value: String, valueColor: Color = TextColor) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, color = TextMutedColor, fontSize = 12.sp)
+        Text(value, color = valueColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+    }
 }
