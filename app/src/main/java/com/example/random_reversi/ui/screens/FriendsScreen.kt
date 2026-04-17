@@ -248,7 +248,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                 ) {
                     // Fondo: listaamigos.png ocupa todo el ancho
                     Image(
-                        painter = painterResource(id = R.drawable.listaamigos),
+                        painter = painterResource(id = R.drawable.tusamigos),
                         contentDescription = null,
                         contentScale = ContentScale.FillWidth,
                         modifier = Modifier.fillMaxWidth()
@@ -477,8 +477,8 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
                                 .align(Alignment.Center)
-                                .padding(top = 40.dp)
-                                .fillMaxWidth(0.6f)
+                                .padding(top = 22.dp, bottom = 12.dp)
+                                .fillMaxWidth(0.45f)
                         )
                     } else {
                         Column(
