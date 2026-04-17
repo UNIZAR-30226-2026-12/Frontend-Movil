@@ -5,9 +5,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,17 +16,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -116,56 +114,10 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
     var selectedPiece4p by remember { mutableStateOf(0) }
     var selectedAvatarId by remember { mutableStateOf(avatarOptions.first().id) }
     var customAvatarUrl by remember { mutableStateOf<String?>(null) }
+    var localImageUri by remember { mutableStateOf<Uri?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            isSaving = true
-            when (val uploadResult = UserRepository.uploadAvatar(context, uri)) {
-                is UserResult.Success -> {
-                    customAvatarUrl = uploadResult.data
-                    selectedAvatarId = "custom"
-                    errorText = null
-                }
-
-                is UserResult.Error -> {
-                    errorText = uploadResult.message
-                }
-            }
-            isSaving = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        when (val profileResult = UserRepository.getMe()) {
-            is UserResult.Success -> {
-                val user = profileResult.data
-                UserProfileStore.setFromUser(user)
-                val (duel, quad) = decodePiecePreference(user.preferred_piece_color)
-                selectedPiece1v1 = duel
-                selectedPiece4p = quad
-
-                val preset = avatarOptions.firstOrNull { it.id == user.avatar_url }
-                if (preset != null) {
-                    selectedAvatarId = preset.id
-                } else if (!user.avatar_url.isNullOrBlank()) {
-                    selectedAvatarId = "custom"
-                    customAvatarUrl = user.avatar_url
-                }
-                errorText = null
-            }
-
-            is UserResult.Error -> {
-                errorText = profileResult.message
-            }
-        }
-        isLoading = false
-    }
 
     fun savePieceSelection(duel: Int, quad: Int) {
         scope.launch {
@@ -196,10 +148,64 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
         }
     }
 
-    // ── Layout principal con fondo decorativo ────────────────────────
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        // 1. Mostrar la foto de la galería al instante
+        localImageUri = uri
+        selectedAvatarId = "custom"
+
+        // 2. Subir al servidor y GUARDAR en el perfil del usuario
+        scope.launch {
+            isSaving = true
+            when (val uploadResult = UserRepository.uploadAvatar(context, uri)) {
+                is UserResult.Success -> {
+                    val nuevaUrl = uploadResult.data
+                    customAvatarUrl = nuevaUrl
+                    errorText = null
+
+                    // ¡AQUÍ ESTÁ EL ARREGLO!
+                    // Vinculamos la nueva imagen al perfil de forma definitiva
+                    saveAvatarSelection(nuevaUrl)
+                }
+                is UserResult.Error -> {
+                    errorText = uploadResult.message
+                    isSaving = false // Lo quitamos si falla, si va bien lo maneja saveAvatarSelection
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        when (val profileResult = UserRepository.getMe()) {
+            is UserResult.Success -> {
+                val user = profileResult.data
+                UserProfileStore.setFromUser(user)
+                val (duel, quad) = decodePiecePreference(user.preferred_piece_color)
+                selectedPiece1v1 = duel
+                selectedPiece4p = quad
+
+                val preset = avatarOptions.firstOrNull { it.id == user.avatar_url }
+                if (preset != null) {
+                    selectedAvatarId = preset.id
+                } else if (!user.avatar_url.isNullOrBlank()) {
+                    selectedAvatarId = "custom"
+                    customAvatarUrl = user.avatar_url
+                }
+                errorText = null
+            }
+            is UserResult.Error -> {
+                errorText = profileResult.message
+            }
+        }
+        isLoading = false
+    }
+
+    // ── Layout principal ──
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // Fondo
         Image(
             painter = painterResource(id = R.drawable.nuevofondomovil),
             contentDescription = null,
@@ -214,21 +220,19 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
             return@Box
         }
 
-        // ── Contenido con scroll ─────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.weight(0.25f))
 
             // ══════════════════════════════════════════════════════════
             // SECCIÓN: FOTO DE PERFIL
             // ══════════════════════════════════════════════════════════
 
-            // Etiqueta "Foto de Perfil" (PNG)
             Image(
                 painter = painterResource(id = R.drawable.fotoperfil),
                 contentDescription = "Foto de Perfil",
@@ -236,54 +240,55 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                 modifier = Modifier.fillMaxWidth(0.7f)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.weight(0.15f))
 
-            // Avatar actual dentro del marco decorativo
+            // Avatar actual
             Box(
-                modifier = Modifier.size(130.dp),
+                modifier = Modifier.size(110.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Marco decorativo (marcofoto.png)
                 Image(
                     painter = painterResource(id = R.drawable.marcofoto),
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize()
                 )
-                // Avatar del usuario dentro del marco
+
                 val preset = avatarOptions.firstOrNull { it.id == selectedAvatarId }
+                val customImageModel = localImageUri ?: customAvatarUrl
+
                 when {
                     preset != null -> Image(
                         painter = painterResource(id = preset.drawableRes),
                         contentDescription = preset.label,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(95.dp)
-                            .clip(RoundedCornerShape(16.dp))
+                            .size(80.dp)
+                            .clip(RoundedCornerShape(12.dp))
                     )
-                    !customAvatarUrl.isNullOrBlank() -> AsyncImage(
-                        model = customAvatarUrl,
+                    customImageModel != null -> AsyncImage(
+                        model = customImageModel,
                         contentDescription = "Custom avatar",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(95.dp)
-                            .clip(RoundedCornerShape(16.dp))
+                            .size(80.dp)
+                            .clip(RoundedCornerShape(12.dp))
                     )
                     else -> Box(
                         modifier = Modifier
-                            .size(95.dp)
-                            .clip(RoundedCornerShape(16.dp))
+                            .size(80.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(PrimaryColor),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("?", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                        Text("?", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.weight(0.15f))
 
-            // Fila de avatares seleccionables
+            // Fila de avatares
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -299,13 +304,14 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                     )
                 }
 
-                if (!customAvatarUrl.isNullOrBlank()) {
+                val customImageModel = localImageUri ?: customAvatarUrl
+                if (customImageModel != null) {
                     CustomAvatarOptionButton(
-                        imageUrl = customAvatarUrl ?: "",
+                        imageModel = customImageModel,
                         isSelected = selectedAvatarId == "custom",
                         onClick = {
                             selectedAvatarId = "custom"
-                            saveAvatarSelection(customAvatarUrl ?: "")
+                            if (customAvatarUrl != null) saveAvatarSelection(customAvatarUrl!!)
                         }
                     )
                 }
@@ -315,238 +321,164 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.weight(0.15f))
 
             // ══════════════════════════════════════════════════════════
             // SECCIÓN: FICHAS
             // ══════════════════════════════════════════════════════════
 
-            // Etiqueta "Fichas" (PNG)
-            Image(
-                painter = painterResource(id = R.drawable.fichas),
-                contentDescription = "Fichas",
-                contentScale = ContentScale.FillWidth,
-                modifier = Modifier.fillMaxWidth(0.55f)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Fichas 1v1 y 4 Jugadores lado a lado ─────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.Top
-            ) {
-                // Columna 1v1
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    // Label "1v1" (PNG)
-                    Image(
-                        painter = painterResource(id = R.drawable.modo1v1),
-                        contentDescription = "1v1",
-                        contentScale = ContentScale.FillWidth,
-                        modifier = Modifier.width(50.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    // Tablero 1v1 (PNG)
-                    Image(
-                        painter = painterResource(id = R.drawable.tablero1v1),
-                        contentDescription = "Tablero 1v1",
-                        contentScale = ContentScale.FillWidth,
-                        modifier = Modifier.size(120.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Columna 4 Jugadores
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    // Label "4 Jugadores" (PNG)
-                    Image(
-                        painter = painterResource(id = R.drawable.modo4jugadores),
-                        contentDescription = "4 Jugadores",
-                        contentScale = ContentScale.FillWidth,
-                        modifier = Modifier.width(130.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    // Tablero 4P (PNG)
-                    Image(
-                        painter = painterResource(id = R.drawable.tablero4v),
-                        contentDescription = "Tablero 4 Jugadores",
-                        contentScale = ContentScale.FillWidth,
-                        modifier = Modifier.size(120.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // ── Selector de colores 1v1 (PNG como fondo + botones superpuestos) ──
             Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .height(280.dp),
+                contentAlignment = Alignment.BottomCenter
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.seleccioncolores1v1),
-                    contentDescription = "Selección colores 1v1",
-                    contentScale = ContentScale.FillWidth,
-                    modifier = Modifier.fillMaxWidth(0.92f)
+                    painter = painterResource(id = R.drawable.eleccionfichas),
+                    contentDescription = "Elección de Fichas",
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier.fillMaxSize()
                 )
-                // Botones invisibles superpuestos sobre cada círculo del PNG
-                Row(
-                    modifier = Modifier.fillMaxWidth(0.82f),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .offset(y = 45.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy((-18).dp)
                 ) {
-                    pieceStyles1v1.forEachIndexed { index, _ ->
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = {
-                                        selectedPiece1v1 = index
-                                        savePieceSelection(index, selectedPiece4p)
-                                    }
-                                )
-                                .then(
-                                    if (selectedPiece1v1 == index) Modifier.background(
-                                        PrimaryColor.copy(alpha = 0.3f), CircleShape
-                                    ) else Modifier
-                                )
+                    // ── Selector 1v1 ──
+                    Box(contentAlignment = Alignment.Center) {
+                        Image(
+                            painter = painterResource(id = R.drawable.seleccioncolores1v1),
+                            contentDescription = "Selección colores 1v1",
+                            contentScale = ContentScale.FillWidth,
+                            modifier = Modifier.fillMaxWidth(0.85f)
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(0.75f),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            pieceStyles1v1.forEachIndexed { index, _ ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .border(
+                                            width = if (selectedPiece1v1 == index) 4.dp else 0.dp,
+                                            color = if (selectedPiece1v1 == index) Color.White else Color.Transparent,
+                                            shape = CircleShape
+                                        )
+                                        .clickable {
+                                            selectedPiece1v1 = index
+                                            savePieceSelection(index, selectedPiece4p)
+                                        }
+                                )
+                            }
+                        }
+                    }
+
+                    // ── Selector 4P ──
+                    Box(contentAlignment = Alignment.Center) {
+                        Image(
+                            painter = painterResource(id = R.drawable.seleccioncolores4p),
+                            contentDescription = "Selección colores 4P",
+                            contentScale = ContentScale.FillWidth,
+                            modifier = Modifier.fillMaxWidth(0.85f)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(0.75f),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            pieceStyles4P.forEachIndexed { index, _ ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .border(
+                                            width = if (selectedPiece4p == index) 4.dp else 0.dp,
+                                            color = if (selectedPiece4p == index) Color.White else Color.Transparent,
+                                            shape = CircleShape
+                                        )
+                                        .clickable {
+                                            selectedPiece4p = index
+                                            savePieceSelection(selectedPiece1v1, index)
+                                        }
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // ── Selector de colores 4P (PNG como fondo + botones superpuestos) ──
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.seleccioncolores4p),
-                    contentDescription = "Selección colores 4P",
-                    contentScale = ContentScale.FillWidth,
-                    modifier = Modifier.fillMaxWidth(0.92f)
-                )
-                // Botones invisibles superpuestos
-                Row(
-                    modifier = Modifier.fillMaxWidth(0.82f),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    pieceStyles4P.forEachIndexed { index, _ ->
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = {
-                                        selectedPiece4p = index
-                                        savePieceSelection(selectedPiece1v1, index)
-                                    }
-                                )
-                                .then(
-                                    if (selectedPiece4p == index) Modifier.background(
-                                        PrimaryColor.copy(alpha = 0.3f), CircleShape
-                                    ) else Modifier
-                                )
-                        )
-                    }
+            if (isSaving || !errorText.isNullOrBlank()) {
+                Spacer(modifier = Modifier.weight(0.1f))
+                if (isSaving) {
+                    Text("Guardando...", color = Color.White.copy(alpha=0.7f), fontSize = 12.sp)
+                }
+                if (!errorText.isNullOrBlank()) {
+                    Text(errorText ?: "", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                 }
             }
 
-            // ── Estado de guardado / errores ─────────────────────────
-            if (isSaving) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(text = "Guardando cambios...", color = TextMutedColor, fontSize = 12.sp)
-            }
+            Spacer(modifier = Modifier.weight(0.5f))
 
-            if (!errorText.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = errorText ?: "",
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 12.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Botón volver (PNG) ───────────────────────────────────
             Image(
                 painter = painterResource(id = R.drawable.botonvolvermenu),
                 contentDescription = "Volver al menú",
-                contentScale = ContentScale.FillWidth,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .fillMaxWidth(0.55f)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { onNavigate("menu") }
-                    )
+                    .fillMaxWidth(0.65f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onNavigate("menu") }
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.weight(0.35f))
         }
     }
 }
 
-// ── Botón de avatar preset (marco decorativo estilo polaroid) ────────
+// ── Botones de Avatar ───────────────────────────────────────────
 @Composable
 private fun AvatarOptionButton(imageRes: Int, isSelected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(52.dp)
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        // Marco decorativo (marcofoto.png) pequeño
         Image(
             painter = painterResource(id = R.drawable.marcofoto),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize()
         )
-        // Avatar
         Image(
             painter = painterResource(id = imageRes),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(40.dp)
+                .size(36.dp)
                 .clip(RoundedCornerShape(8.dp))
         )
-        // Indicador de selección
         if (isSelected) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(PrimaryColor.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                    .background(PrimaryColor.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
             )
         }
     }
 }
 
-// ── Botón de avatar custom (subido por el usuario) ───────────────────
 @Composable
-private fun CustomAvatarOptionButton(imageUrl: String, isSelected: Boolean, onClick: () -> Unit) {
+private fun CustomAvatarOptionButton(imageModel: Any, isSelected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(52.dp)
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -558,29 +490,28 @@ private fun CustomAvatarOptionButton(imageUrl: String, isSelected: Boolean, onCl
             modifier = Modifier.fillMaxSize()
         )
         AsyncImage(
-            model = imageUrl,
+            model = imageModel,
             contentDescription = "Custom avatar option",
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(40.dp)
+                .size(36.dp)
                 .clip(RoundedCornerShape(8.dp))
         )
         if (isSelected) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(PrimaryColor.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                    .background(PrimaryColor.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
             )
         }
     }
 }
 
-// ── Botón de subir avatar (+) ────────────────────────────────────────
 @Composable
 private fun UploadAvatarButton(onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(52.dp)
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -593,7 +524,7 @@ private fun UploadAvatarButton(onClick: () -> Unit) {
         )
         Text(
             text = "+",
-            color = TextColor,
+            color = Color.White,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold
         )
