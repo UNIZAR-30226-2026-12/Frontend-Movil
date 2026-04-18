@@ -72,7 +72,7 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
                 MenuImageButton(
                     drawableRes = R.drawable.botonreglas,
                     contentDescription = "Reglas del juego",
-                    modifier = Modifier.width(85.dp),
+                    modifier = Modifier.width(105.dp),
                     onClick = { onNavigate("rules") }
                 )
 
@@ -112,7 +112,7 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
                         blurRadius = 6f
                     )
                 ),
-                modifier = Modifier.padding(bottom = 20.dp).zIndex(10f)
+                modifier = Modifier.padding(bottom = 5.dp).zIndex(10f)
             )
 
             // ── PILA DE BOTONES DE ACCIÓN SUPERPUESTOS ──
@@ -132,8 +132,8 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
                 drawableRes = R.drawable.botonjugaria,
                 contentDescription = "Jugar contra la IA",
                 modifier = Modifier
-                    .fillMaxWidth(0.65f)
-                    .offset(y = (-30).dp)
+                    .fillMaxWidth(0.55f)
+                    .offset(y = (-35).dp)
                     .zIndex(4f),
                 onClick = { showGameModeModal = true }
             )
@@ -142,17 +142,17 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth(0.85f)
-                    .offset(y = (-55).dp)
+                    .offset(y = (-60).dp)
                     .zIndex(3f),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 MenuImageButton(
-                    drawableRes = R.drawable.botonpersonalizacion,
+                    drawableRes = R.drawable.botonpersonalizacion2,
                     contentDescription = "Personalización",
                     modifier = Modifier
                         .weight(1f)
-                        .padding(end = 4.dp)
+                        .padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp)
                         .offset(y = 15.dp) // desequilibrio visual intencional
                         .rotate(-3f),
                     onClick = { onNavigate("customization") }
@@ -168,6 +168,17 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
                     onClick = { onNavigate("friends") }
                 )
             }
+
+            // 4. Ranking (Debajo de personalización y amigos)
+            MenuImageButton(
+                drawableRes = R.drawable.botonranking,
+                contentDescription = "Ranking",
+                modifier = Modifier
+                    .fillMaxWidth(0.45f)
+                    .offset(x = 15.dp, y = (-65).dp)
+                    .zIndex(2f),
+                onClick = { onNavigate("ranking") }
+            )
 
             Spacer(modifier = Modifier.weight(1f))
         }
@@ -211,65 +222,67 @@ private fun UserProfileAndLogout(
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.End
     ) {
-        // Marco de Foto (Polaroid)
+        // Marco de Foto
         Box(
             modifier = Modifier
                 .width(85.dp)
-                .height(95.dp)
+                .height(85.dp)
                 .rotate(-6f)
                 .clickable(onClick = onProfile),
-            contentAlignment = Alignment.TopCenter
+            contentAlignment = Alignment.Center
         ) {
+            // Fondo / Foto (Avatar interno)
+            Box(
+                modifier = Modifier
+                    .offset(y = (-8).dp)
+                    .size(53.dp)
+                    .rotate(-9f) // Rotation changed by user
+                    .background(Color(0xFF264653)),
+                contentAlignment = Alignment.Center
+            ) {
+                val presetRes = AvatarPresets.drawableForId(avatarUrl)
+                if (presetRes != null) {
+                    Image(
+                        painter = painterResource(id = presetRes),
+                        contentDescription = "Avatar",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else if (!avatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = "Avatar",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = userName.firstOrNull()?.toString()?.lowercase() ?: "?",
+                        color = Color(0xFFE9C46A),
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+
+            // Capa Superior (Marco)
             Image(
-                painter = painterResource(id = R.drawable.marcofoto),
+                painter = painterResource(id = R.drawable.marcofotoperfil),
                 contentDescription = "Marco de perfil",
                 contentScale = ContentScale.FillBounds,
                 modifier = Modifier.fillMaxSize()
             )
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 10.dp)
-            ) {
-                // Avatar interno
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .background(Color(0xFF264653)), // Color de fondo si no hay avatar (como la A)
-                    contentAlignment = Alignment.Center
-                ) {
-                    val presetRes = AvatarPresets.drawableForId(avatarUrl)
-                    if (presetRes != null) {
-                        Image(
-                            painter = painterResource(id = presetRes),
-                            contentDescription = "Avatar",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else if (!avatarUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = avatarUrl,
-                            contentDescription = "Avatar",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Text(
-                            text = userName.firstOrNull()?.toString()?.lowercase() ?: "?",
-                            color = Color(0xFFE9C46A), // color amarillo de la letra A
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                // Texto de ELO
-                Text(
-                    text = "$elo RR",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-            }
+
+            // Texto de ELO superpuesto sobre la parte beige
+            Text(
+                text = "$elo RR",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                modifier = Modifier
+                    .offset(x = 7.dp, y = 28.dp)
+                    .rotate(-7f)
+            )
         }
 
         // Botón Cerrar Sesión (Etiqueta recortada rota a la derecha)
