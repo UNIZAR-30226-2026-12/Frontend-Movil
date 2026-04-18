@@ -13,12 +13,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,8 +35,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -209,10 +211,8 @@ fun ProfileScreen(
     val elo = stats?.elo ?: 1000
     val avatar = stats?.avatar_url ?: profile.avatarUrl
 
-    // ── Layout principal con fondo decorativo ────────────────────────
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Fondo ────────────────────────────────────────────────────
         Image(
             painter = painterResource(id = R.drawable.nuevofondomovil),
             contentDescription = null,
@@ -220,111 +220,194 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Contenido con scroll ─────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
             Header(name, elo, avatar, isOwnProfile)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (isOwnProfile) {
-                SegmentedTabs(activeTab, { activeTab = it }, Tab.values().toList())
-                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ImageToggleButton(
+                        imageRes = R.drawable.botontusestadisticas,
+                        description = "Tus estadísticas",
+                        isSelected = activeTab == Tab.Summary,
+                        onClick = { activeTab = Tab.Summary },
+                        modifier = Modifier.weight(1f)
+                    )
+                    ImageToggleButton(
+                        imageRes = R.drawable.botonajustes,
+                        description = "Ajustes",
+                        isSelected = activeTab == Tab.Settings,
+                        onClick = { activeTab = Tab.Settings },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
-            when {
-                loading -> Box(
-                    Modifier.fillMaxWidth().height(220.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = PrimaryColor)
-                }
-                error != null -> ErrorCard(error ?: "No se pudo cargar el perfil") { loadProfile() }
-                activeTab == Tab.Summary -> {
-                    SegmentedTabs(activeMode, { activeMode = it }, StatsMode.values().toList())
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // ── Fila 1: Win Rate + Estadísticas ──────────────
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        WinRateCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f))
-                        StatsCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f))
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = PrimaryColor)
                     }
+                    error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        ErrorCard(error ?: "No se pudo cargar el perfil") { loadProfile() }
+                    }
+                    activeTab == Tab.Summary -> {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                ImageToggleButton(
+                                    imageRes = R.drawable.botonestadisticas1vs1,
+                                    description = "Estadísticas 1vs1",
+                                    isSelected = activeMode == StatsMode.OneVsOne,
+                                    onClick = { activeMode = StatsMode.OneVsOne },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                ImageToggleButton(
+                                    imageRes = R.drawable.botonestadisticas1vs1vs1vs1,
+                                    description = "Estadísticas 1vs1vs1vs1",
+                                    isSelected = activeMode == StatsMode.FourPlayers,
+                                    onClick = { activeMode = StatsMode.FourPlayers },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                    if (isOwnProfile) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        // ── Fila 2: Pico RR + Némesis ────────────────
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    WinRateCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f).fillMaxSize())
+                                    StatsCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f).fillMaxSize())
+                                }
+
+                                if (isOwnProfile) {
+                                    Row(
+                                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        PicoCard(modeStats.peak_elo ?: elo, Modifier.weight(1f).fillMaxSize())
+                                        NemesisCard(
+                                            name = modeStats.nemesis_name ?: "-",
+                                            count = modeStats.nemesis_losses ?: 0,
+                                            isFourPlayer = activeMode == StatsMode.FourPlayers,
+                                            modifier = Modifier.weight(1f).fillMaxSize()
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        RachaCard(
+                                            streak = modeStats.win_streak,
+                                            isFourPlayer = activeMode == StatsMode.FourPlayers,
+                                            modifier = Modifier.weight(1f).fillMaxSize()
+                                        )
+                                        VictimaCard(
+                                            name = modeStats.victim_name ?: "-",
+                                            count = modeStats.victim_wins ?: 0,
+                                            isFourPlayer = activeMode == StatsMode.FourPlayers,
+                                            modifier = Modifier.weight(1f).fillMaxSize()
+                                        )
+                                    }
+                                } else {
+                                    HeadToHeadCard(h2h = h2h, isFourPlayer = activeMode == StatsMode.FourPlayers, modifier = Modifier.weight(1f).fillMaxWidth())
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            PicoCard(modeStats.peak_elo ?: elo, Modifier.weight(1f))
-                            NemesisCard(
-                                name = modeStats.nemesis_name ?: "-",
-                                count = modeStats.nemesis_losses ?: 0,
-                                isFourPlayer = activeMode == StatsMode.FourPlayers,
-                                modifier = Modifier.weight(1f)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.postitajustes),
+                                    contentDescription = "Fondo de ajustes",
+                                    contentScale = ContentScale.FillBounds,
+                                    modifier = Modifier.matchParentSize()
+                                )
+
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        // Ajustado top=75dp para ganar algo de espacio hacia arriba
+                                        .padding(start = 24.dp, end = 24.dp, top = 75.dp, bottom = 12.dp),
+                                    // Espaciado fijo con más separación
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    StyledField(username, { username = it }, "Nombre de usuario")
+                                    StyledField(email, { email = it }, "Email")
+                                    StyledField(currentPassword, { currentPassword = it }, "Contraseña actual", true)
+                                    StyledField(newPassword, { newPassword = it }, "Nueva contraseña", true)
+                                    StyledField(confirmPassword, { confirmPassword = it }, "Confirmar contraseña", true)
+
+                                    if (!settingsError.isNullOrBlank()) {
+                                        Text(settingsError!!, color = Color(0xFFDC2626), fontSize = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+                                    }
+                                    if (!settingsSuccess.isNullOrBlank()) {
+                                        Text(settingsSuccess!!, color = Color(0xFF16A34A), fontSize = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+                                    }
+                                    if (saving) {
+                                        Text("Guardando...", color = Color.Black, fontSize = 12.sp, textAlign = TextAlign.Center)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Image(
+                                painter = painterResource(id = R.drawable.botonguardarcambios),
+                                contentDescription = "Guardar cambios",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .heightIn(max = 55.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .alpha(if (saving) 0.5f else 1f)
+                                    .clickable(
+                                        enabled = !saving,
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { saveSettings() }
+                                    )
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        // ── Fila 3: Racha + Víctima ──────────────────
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            RachaCard(
-                                streak = modeStats.win_streak,
-                                isFourPlayer = activeMode == StatsMode.FourPlayers,
-                                modifier = Modifier.weight(1f)
-                            )
-                            VictimaCard(
-                                name = modeStats.victim_name ?: "-",
-                                count = modeStats.victim_wins ?: 0,
-                                isFourPlayer = activeMode == StatsMode.FourPlayers,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
-                    if (!isOwnProfile) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HeadToHeadCard(h2h = h2h, isFourPlayer = activeMode == StatsMode.FourPlayers)
                     }
                 }
-                else -> SettingsCard(
-                    username = username,
-                    email = email,
-                    currentPassword = currentPassword,
-                    newPassword = newPassword,
-                    confirmPassword = confirmPassword,
-                    onUsername = { username = it },
-                    onEmail = { email = it },
-                    onCurrent = { currentPassword = it },
-                    onNew = { newPassword = it },
-                    onConfirm = { confirmPassword = it },
-                    onSave = { saveSettings() },
-                    saving = saving,
-                    error = settingsError,
-                    success = settingsSuccess
-                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Botón volver (PNG) ───────────────────────────────────
             Image(
                 painter = painterResource(id = R.drawable.botonvolvermenu),
-                contentDescription = "Volver",
-                contentScale = ContentScale.FillWidth,
+                contentDescription = "Volver al menú",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .fillMaxWidth(0.72f)
+                    .fillMaxWidth(0.85f)
+                    .heightIn(max = 70.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -336,7 +419,31 @@ fun ProfileScreen(
     }
 }
 
-// ── Header: Avatar a la izquierda + tarjeta ELO a la derecha ─────────
+@Composable
+private fun ImageToggleButton(
+    imageRes: Int,
+    description: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorFilter = remember(isSelected) {
+        if (isSelected) null else ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+    }
+
+    Image(
+        painter = painterResource(id = imageRes),
+        contentDescription = description,
+        contentScale = ContentScale.Fit,
+        colorFilter = colorFilter,
+        modifier = modifier
+            .heightIn(max = 52.dp)
+            .alpha(if (isSelected) 1f else 0.5f)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+    )
+}
+
 @Composable
 private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile: Boolean) {
     Row(
@@ -344,7 +451,6 @@ private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile:
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        // Avatar estilo polaroid
         Box(
             modifier = Modifier
                 .background(Color.White, RoundedCornerShape(6.dp))
@@ -355,24 +461,17 @@ private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile:
                 presetRes != null -> Image(
                     painter = painterResource(presetRes),
                     contentDescription = "Avatar",
-                    modifier = Modifier
-                        .size(62.dp)
-                        .clip(RoundedCornerShape(4.dp)),
+                    modifier = Modifier.size(62.dp).clip(RoundedCornerShape(4.dp)),
                     contentScale = ContentScale.Crop
                 )
                 !avatarUrl.isNullOrBlank() -> AsyncImage(
                     model = avatarUrl,
                     contentDescription = "Avatar",
-                    modifier = Modifier
-                        .size(62.dp)
-                        .clip(RoundedCornerShape(4.dp)),
+                    modifier = Modifier.size(62.dp).clip(RoundedCornerShape(4.dp)),
                     contentScale = ContentScale.Crop
                 )
                 else -> Box(
-                    modifier = Modifier
-                        .size(62.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(PrimaryColor),
+                    modifier = Modifier.size(62.dp).clip(RoundedCornerShape(4.dp)).background(PrimaryColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -387,10 +486,7 @@ private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile:
 
         Spacer(modifier = Modifier.width(14.dp))
 
-        // Placa ELO ACTUAL (PNG con valor superpuesto)
-        Box(
-            contentAlignment = Alignment.Center
-        ) {
+        Box(contentAlignment = Alignment.Center) {
             Image(
                 painter = painterResource(id = R.drawable.eloactual),
                 contentDescription = "ELO Actual",
@@ -401,50 +497,37 @@ private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile:
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = 18.dp)
             ) {
-                Text(
-                    "$elo RR",
-                    color = TextColor,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    textAlign = TextAlign.Center
-                )
+                Text("$elo RR", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
             }
         }
     }
 }
 
-// ── Tarjeta ilustrada reutilizable (PNG arriba + datos abajo) ────────
+// ── Campo de texto restaurado sin restricción estricta de altura ────────────────
 @Composable
-private fun IllustratedCard(
-    imageRes: Int,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    Surface(
-        modifier = modifier,
-        color = SurfaceColor.copy(alpha = 0.95f),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Column {
-            Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = null,
-                contentScale = ContentScale.FillWidth,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Column(
-                modifier = Modifier.padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                content()
-            }
-        }
-    }
+private fun StyledField(value: String, onChange: (String) -> Unit, label: String, isPassword: Boolean = false) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label, fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+        singleLine = true,
+        // Eliminamos el problema de invisibilidad forzando Color.Black en el texto
+        textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black, fontSize = 13.sp),
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Color.Black,
+            unfocusedBorderColor = Color.Black.copy(alpha = 0.6f),
+            focusedLabelColor = Color.Black,
+            unfocusedLabelColor = Color.Black.copy(alpha = 0.8f),
+            focusedTextColor = Color.Black,
+            unfocusedTextColor = Color.Black,
+            cursorColor = Color.Black
+        ),
+        // Se elimina la altura forzada para evitar el recorte del texto. Se deja que respire.
+        modifier = Modifier.fillMaxWidth(0.9f)
+    )
 }
 
-// ── Win Rate (texto superpuesto sobre el PNG) ────────────────────────
 @Composable
 private fun WinRateCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
     val total = modeStats.total_games.coerceAtLeast(0)
@@ -453,71 +536,39 @@ private fun WinRateCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, mod
     val ratio = if (total > 0) wins.toFloat() / total.toFloat() else 0f
     val percent = (ratio * 100).roundToInt()
 
-    Box(
-        modifier = modifier.clip(RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        // PNG como fondo completo
+    Box(modifier = modifier.clip(RoundedCornerShape(16.dp)), contentAlignment = Alignment.BottomCenter) {
         Image(
             painter = painterResource(id = R.drawable.winrate),
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
-            modifier = Modifier.fillMaxWidth()
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
         )
-        // Datos superpuestos sobre el PNG
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(
-                "$percent%",
-                color = TextColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                if (isFourPlayer) "1º: $wins" else "$wins V - $losses D",
-                color = TextMutedColor,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center
-            )
+            Text("$percent%", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 22.sp, textAlign = TextAlign.Center)
+            Text(if (isFourPlayer) "1º: $wins" else "$wins V - $losses D", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center)
         }
     }
 }
 
-// ── Estadísticas (números superpuestos sobre el PNG) ─────────────────
 @Composable
 private fun StatsCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.clip(RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        // PNG como fondo completo
+    Box(modifier = modifier.clip(RoundedCornerShape(16.dp)), contentAlignment = Alignment.BottomCenter) {
         Image(
             painter = painterResource(id = R.drawable.estadisticas),
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
-            modifier = Modifier.fillMaxWidth()
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
         )
-        // Solo los números superpuestos
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(
-                modeStats.total_games.toString(),
-                color = TextColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center
-            )
+            Text(modeStats.total_games.toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
             if (isFourPlayer) {
                 Text((modeStats.first_place ?: 0).toString(), color = Color(0xFF4ADE80), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Text((modeStats.second_place ?: 0).toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -532,151 +583,76 @@ private fun StatsCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, modif
     }
 }
 
-// ── Pico de RR (PNG + valor) ─────────────────────────────────────────
 @Composable
 private fun PicoCard(peakElo: Int, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.clip(RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.BottomCenter
-    ) {
+    Box(modifier = modifier.clip(RoundedCornerShape(16.dp)), contentAlignment = Alignment.BottomCenter) {
         Image(
             painter = painterResource(id = R.drawable.picorr),
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
-            modifier = Modifier.fillMaxWidth()
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
         )
-        Text(
-            "$peakElo RR",
-            color = TextColor,
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(10.dp)
-        )
+        Text("$peakElo RR", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 8.dp))
     }
 }
 
-// ── Tu Némesis (datos superpuestos sobre el PNG) ─────────────────────
 @Composable
 private fun NemesisCard(name: String, count: Int, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.clip(RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.BottomCenter
-    ) {
+    Box(modifier = modifier.clip(RoundedCornerShape(16.dp)), contentAlignment = Alignment.BottomCenter) {
         Image(
             painter = painterResource(id = R.drawable.nemesis),
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
-            modifier = Modifier.fillMaxWidth()
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
         )
-        Column(
-            modifier = Modifier.padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                name,
-                color = TextColor,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (count > 0) {
-                Text(
-                    "${if (isFourPlayer) "Superado" else "Derrotas"}: $count",
-                    color = TextMutedColor,
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
+        Column(modifier = Modifier.padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(name, color = TextColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (count > 0) Text("${if (isFourPlayer) "Superado" else "Derrotas"}: $count", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center)
         }
     }
 }
 
-// ── Mejor Racha (datos superpuestos sobre el PNG) ────────────────────
 @Composable
 private fun RachaCard(streak: Int, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.clip(RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.BottomCenter
-    ) {
+    Box(modifier = modifier.clip(RoundedCornerShape(16.dp)), contentAlignment = Alignment.BottomCenter) {
         Image(
             painter = painterResource(id = R.drawable.racha),
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
-            modifier = Modifier.fillMaxWidth()
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
         )
-        Column(
-            modifier = Modifier.padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                streak.toString(),
-                color = TextColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                if (isFourPlayer) "1º puestos seguidos" else "Victorias seguidas",
-                color = TextMutedColor,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center
-            )
+        Column(modifier = Modifier.padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(streak.toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center)
+            Text(if (isFourPlayer) "1º puestos seguidos" else "Victorias seguidas", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center)
         }
     }
 }
 
-// ── Tu Víctima (datos superpuestos sobre el PNG) ─────────────────────
 @Composable
 private fun VictimaCard(name: String, count: Int, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.clip(RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.BottomCenter
-    ) {
+    Box(modifier = modifier.clip(RoundedCornerShape(16.dp)), contentAlignment = Alignment.BottomCenter) {
         Image(
             painter = painterResource(id = R.drawable.victima),
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
-            modifier = Modifier.fillMaxWidth()
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
         )
-        Column(
-            modifier = Modifier.padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                name,
-                color = TextColor,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (count > 0) {
-                Text(
-                    "${if (isFourPlayer) "Superado" else "Victorias"}: $count",
-                    color = TextMutedColor,
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
+        Column(modifier = Modifier.padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(name, color = TextColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (count > 0) Text("${if (isFourPlayer) "Superado" else "Victorias"}: $count", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center)
         }
     }
 }
 
-// ── Cara a cara (perfil ajeno) ───────────────────────────────────────
 @Composable
-private fun HeadToHeadCard(h2h: HeadToHeadResponse?, isFourPlayer: Boolean) {
+private fun HeadToHeadCard(h2h: HeadToHeadResponse?, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         color = SurfaceColor.copy(alpha = 0.92f),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, BorderColor)
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.SpaceEvenly) {
             Text("Cara a cara", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             if (h2h == null) {
                 Text("Sin datos disponibles.", color = TextMutedColor, fontSize = 12.sp)
@@ -694,134 +670,14 @@ private fun HeadToHeadCard(h2h: HeadToHeadResponse?, isFourPlayer: Boolean) {
     }
 }
 
-// ── Ajustes de cuenta ────────────────────────────────────────────────
 @Composable
-private fun SettingsCard(
-    username: String,
-    email: String,
-    currentPassword: String,
-    newPassword: String,
-    confirmPassword: String,
-    onUsername: (String) -> Unit,
-    onEmail: (String) -> Unit,
-    onCurrent: (String) -> Unit,
-    onNew: (String) -> Unit,
-    onConfirm: (String) -> Unit,
-    onSave: () -> Unit,
-    saving: Boolean,
-    error: String?,
-    success: String?
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = SurfaceColor.copy(alpha = 0.95f),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Cambiar los datos de tu cuenta", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            StyledField(username, onUsername, "Nombre de usuario")
-            StyledField(email, onEmail, "Email")
-            StyledField(currentPassword, onCurrent, "Contraseña actual", true)
-            StyledField(newPassword, onNew, "Nueva contraseña", true)
-            StyledField(confirmPassword, onConfirm, "Confirmar contraseña", true)
-            if (!error.isNullOrBlank()) Text(error, color = Color(0xFFF87171), fontSize = 12.sp)
-            if (!success.isNullOrBlank()) Text(success, color = Color(0xFF4ADE80), fontSize = 12.sp)
-            Button(
-                onClick = onSave,
-                enabled = !saving,
-                modifier = Modifier.fillMaxWidth().height(46.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text(if (saving) "Guardando..." else "Guardar cambios", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-// ── Campo de texto con estilo ────────────────────────────────────────
-@Composable
-private fun StyledField(value: String, onChange: (String) -> Unit, label: String, isPassword: Boolean = false) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = PrimaryColor,
-            unfocusedBorderColor = BorderColor,
-            focusedLabelColor = PrimaryColor,
-            unfocusedLabelColor = TextMutedColor,
-            focusedTextColor = TextColor,
-            unfocusedTextColor = TextColor,
-            cursorColor = PrimaryColor
-        ),
-        modifier = Modifier.fillMaxWidth()
-    )
-}
-
-// ── Pestañas segmentadas ─────────────────────────────────────────────
-@Composable
-private fun <T> SegmentedTabs(active: T, onSelect: (T) -> Unit, values: List<T>) where T : Enum<T> {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = SurfaceColor.copy(alpha = 0.92f),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            values.forEach { value ->
-                val label = (value as? Tab)?.label ?: (value as? StatsMode)?.label ?: value.name
-                val selected = value == active
-
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onSelect(value) },
-                    color = if (selected) PrimaryColor.copy(alpha = 0.18f) else Color.Transparent,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        if (selected) PrimaryColor.copy(alpha = 0.3f) else BorderColor
-                    )
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            color = if (selected) PrimaryColor else TextMutedColor,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── Fila de estadística ──────────────────────────────────────────────
-@Composable private fun StatRow(label: String, value: String, color: Color = TextColor) {
+private fun StatRow(label: String, value: String, color: Color = TextColor) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = TextMutedColor, fontSize = 11.sp, maxLines = 1)
         Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
     }
 }
 
-// ── Tarjeta de error ─────────────────────────────────────────────────
 @Composable
 private fun ErrorCard(message: String, onRetry: () -> Unit) {
     Surface(
