@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -78,6 +79,7 @@ private val pieceStyles1v1 = listOf(
     PieceStyle1v1(Color(0xFF2ECC71), Color(0xFFF1C40F), "Selva"),
     PieceStyle1v1(Color(0xFF9B59B6), Color(0xFFE67E22), "Atardecer"),
     PieceStyle1v1(Color(0xFF1ABC9C), Color(0xFFE84393), "Neon"),
+    PieceStyle1v1(Color(0xFF34495E), Color(0xFFBDC3C7), "Metal"),
 )
 
 private val pieceStyles4P = listOf(
@@ -86,6 +88,7 @@ private val pieceStyles4P = listOf(
     PieceStyle4P(Color(0xFF06B6D4), Color(0xFFF43F5E), Color(0xFF84CC16), Color(0xFFFB7185), "Cyber Pop"),
     PieceStyle4P(Color(0xFFF59E0B), Color(0xFF14B8A6), Color(0xFF8B5CF6), Color(0xFFEF4444), "Magma Frio"),
     PieceStyle4P(Color(0xFF0EA5E9), Color(0xFFFACC15), Color(0xFFEC4899), Color(0xFF10B981), "Tropical RGB"),
+    PieceStyle4P(Color(0xFF3498DB), Color(0xFFF5F5DC), Color(0xFFE74C3C), Color(0xFF2ECC71), "Nebulosa"), // Azul, Beige, Rojo, Verde
 )
 
 private val avatarOptions = AvatarPresets.options.map { AvatarOption(it.id, it.label, it.drawableRes) }
@@ -247,13 +250,6 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                 modifier = Modifier.size(110.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.marcofoto),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize()
-                )
-
                 val preset = avatarOptions.firstOrNull { it.id == selectedAvatarId }
                 val customImageModel = localImageUri ?: customAvatarUrl
 
@@ -263,7 +259,7 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                         contentDescription = preset.label,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(86.dp)
                             .clip(RoundedCornerShape(12.dp))
                     )
                     customImageModel != null -> AsyncImage(
@@ -271,12 +267,12 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                         contentDescription = "Custom avatar",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(86.dp)
                             .clip(RoundedCornerShape(12.dp))
                     )
                     else -> Box(
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(86.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(PrimaryColor),
                         contentAlignment = Alignment.Center
@@ -284,6 +280,13 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                         Text("?", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+
+                Image(
+                    painter = painterResource(id = R.drawable.marcofoto3),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(110.dp)
+                )
             }
 
             Spacer(modifier = Modifier.weight(0.15f))
@@ -293,7 +296,11 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                avatarOptions.forEach { option ->
+                val customImageModel = localImageUri ?: customAvatarUrl
+                val maxPresets = if (customImageModel != null) 3 else 4
+                val visiblePresets = avatarOptions.takeLast(maxPresets)
+
+                visiblePresets.forEach { option ->
                     AvatarOptionButton(
                         imageRes = option.drawableRes,
                         isSelected = selectedAvatarId == option.id,
@@ -304,7 +311,6 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                     )
                 }
 
-                val customImageModel = localImageUri ?: customAvatarUrl
                 if (customImageModel != null) {
                     CustomAvatarOptionButton(
                         imageModel = customImageModel,
@@ -334,39 +340,108 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                 contentAlignment = Alignment.BottomCenter
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.eleccionfichas),
+                    painter = painterResource(id = R.drawable.eleccionfichas2),
                     contentDescription = "Elección de Fichas",
                     contentScale = ContentScale.FillBounds,
                     modifier = Modifier.fillMaxSize()
                 )
 
-                Column(
+                // ── Tableros ──
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(0.70f)
+                        .offset(y = (-75).dp), // Menos negativo hace que baje
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val style1v1 = pieceStyles1v1.getOrElse(selectedPiece1v1) { pieceStyles1v1[0] }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .offset(x = (-10).dp)
+                            .padding(end = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.tablero1v1),
+                            contentDescription = "Tablero 1v1",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth(0.6f).aspectRatio(1f),
+                            verticalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(style1v1.sideA).border(1.dp, Color.White.copy(alpha=0.5f), CircleShape))
+                                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(style1v1.sideB).border(1.dp, Color.White.copy(alpha=0.5f), CircleShape))
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(style1v1.sideB).border(1.dp, Color.White.copy(alpha=0.5f), CircleShape))
+                                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(style1v1.sideA).border(1.dp, Color.White.copy(alpha=0.5f), CircleShape))
+                            }
+                        }
+                    }
+
+                    val style4P = pieceStyles4P.getOrElse(selectedPiece4p) { pieceStyles4P[0] }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.tablero1v1),
+                            contentDescription = "Tablero 4P",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth(0.6f).aspectRatio(1f),
+                            verticalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(style4P.p1).border(1.dp, Color.White.copy(alpha=0.5f), CircleShape))
+                                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(style4P.p2).border(1.dp, Color.White.copy(alpha=0.5f), CircleShape))
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(style4P.p3).border(1.dp, Color.White.copy(alpha=0.5f), CircleShape))
+                                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(style4P.p4).border(1.dp, Color.White.copy(alpha=0.5f), CircleShape))
+                            }
+                        }
+                    }
+                }
+
+                Row(
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
-                        .offset(y = 45.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy((-18).dp)
+                        .offset(x = (-10).dp, y = (-30).dp), // Agregado offset X negativo para moverlo a la izquierda
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     // ── Selector 1v1 ──
-                    Box(contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Image(
                             painter = painterResource(id = R.drawable.seleccioncolores1v1),
                             contentDescription = "Selección colores 1v1",
                             contentScale = ContentScale.FillWidth,
-                            modifier = Modifier.fillMaxWidth(0.85f)
+                            modifier = Modifier.fillMaxWidth(0.95f)
                         )
                         Row(
-                            modifier = Modifier.fillMaxWidth(0.75f),
+                            modifier = Modifier.fillMaxWidth(0.9f),
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             pieceStyles1v1.forEachIndexed { index, _ ->
                                 Box(
                                     modifier = Modifier
-                                        .size(38.dp)
+                                        .size(20.dp)
                                         .clip(CircleShape)
                                         .border(
-                                            width = if (selectedPiece1v1 == index) 4.dp else 0.dp,
+                                            width = if (selectedPiece1v1 == index) 2.dp else 0.dp,
                                             color = if (selectedPiece1v1 == index) Color.White else Color.Transparent,
                                             shape = CircleShape
                                         )
@@ -380,25 +455,30 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                     }
 
                     // ── Selector 4P ──
-                    Box(contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Image(
                             painter = painterResource(id = R.drawable.seleccioncolores4p),
                             contentDescription = "Selección colores 4P",
                             contentScale = ContentScale.FillWidth,
-                            modifier = Modifier.fillMaxWidth(0.85f)
+                            modifier = Modifier.fillMaxWidth(0.95f)
                         )
                         Row(
-                            modifier = Modifier.fillMaxWidth(0.75f),
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .offset(x = 2.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             pieceStyles4P.forEachIndexed { index, _ ->
                                 Box(
                                     modifier = Modifier
-                                        .size(38.dp)
+                                        .size(20.dp)
                                         .clip(CircleShape)
                                         .border(
-                                            width = if (selectedPiece4p == index) 4.dp else 0.dp,
+                                            width = if (selectedPiece4p == index) 2.dp else 0.dp,
                                             color = if (selectedPiece4p == index) Color.White else Color.Transparent,
                                             shape = CircleShape
                                         )
@@ -451,18 +531,18 @@ private fun AvatarOptionButton(imageRes: Int, isSelected: Boolean, onClick: () -
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.marcofoto),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
-        )
-        Image(
             painter = painterResource(id = imageRes),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(36.dp)
+                .size(40.dp)
                 .clip(RoundedCornerShape(8.dp))
+        )
+        Image(
+            painter = painterResource(id = R.drawable.marcofoto3),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(52.dp)
         )
         if (isSelected) {
             Box(
@@ -483,19 +563,19 @@ private fun CustomAvatarOptionButton(imageModel: Any, isSelected: Boolean, onCli
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.marcofoto),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
-        )
         AsyncImage(
             model = imageModel,
             contentDescription = "Custom avatar option",
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(36.dp)
+                .size(40.dp)
                 .clip(RoundedCornerShape(8.dp))
+        )
+        Image(
+            painter = painterResource(id = R.drawable.marcofoto3),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(52.dp)
         )
         if (isSelected) {
             Box(
@@ -517,10 +597,10 @@ private fun UploadAvatarButton(onClick: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.marcofoto),
+            painter = painterResource(id = R.drawable.marcofoto3),
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.size(52.dp)
         )
         Text(
             text = "+",

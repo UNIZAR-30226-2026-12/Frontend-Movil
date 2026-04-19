@@ -11,7 +11,11 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import java.io.ByteArrayOutputStream
 
 sealed class UserResult<out T> {
     data class Success<T>(val data: T) : UserResult<T>()
@@ -103,12 +107,23 @@ object UserRepository {
 
     suspend fun uploadAvatar(context: Context, uri: Uri): UserResult<String> = withContext(Dispatchers.IO) {
         try {
-            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            // Decodificar y comprimir la imagen para evitar el limite de 2MB y asegurar formato JPEG
+            val inputStream = context.contentResolver.openInputStream(uri)
                 ?: return@withContext UserResult.Error("No se pudo leer la imagen")
+            
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            
+            if (bitmap == null) return@withContext UserResult.Error("Formato de imagen invalido")
+            
+            val outputStream = ByteArrayOutputStream()
+            // Comprimir a JPEG con 80% de calidad
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+            val bytes = outputStream.toByteArray()
 
-            val mimeType = context.contentResolver.getType(uri) ?: "image/*"
+            val mimeType = "image/jpeg"
             val body = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
-            val part = MultipartBody.Part.createFormData("file", "avatar_upload", body)
+            val part = MultipartBody.Part.createFormData("file", "avatar_upload.jpg", body)
 
             val response = ApiClient.authApiService.uploadAvatar(part)
             if (response.isSuccessful) {
@@ -119,7 +134,13 @@ object UserRepository {
                     UserResult.Error("Respuesta invalida al subir avatar")
                 }
             } else {
-                UserResult.Error("No se pudo subir el avatar (${response.code()})")
+                val detail = try {
+                    val raw = response.errorBody()?.string()
+                    if (raw.isNullOrBlank()) null else JSONObject(raw).optString("detail", null)
+                } catch (_: Exception) {
+                    null
+                }
+                UserResult.Error(detail ?: "No se pudo subir el avatar (${response.code()})")
             }
         } catch (e: Exception) {
             UserResult.Error(e.message ?: "Error de conexion")
