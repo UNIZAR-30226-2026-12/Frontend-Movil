@@ -29,39 +29,26 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.border
+import androidx.compose.ui.zIndex
+import com.example.random_reversi.R
 import com.example.random_reversi.ui.theme.*
-
-private data class RuleChip(
-    val emoji: String,
-    val startXFraction: Float,
-    val startYFraction: Float,
-    val durationMs: Int,
-    val delayMs: Int,
-    val isQuestion: Boolean = false
-)
-
-private val ruleChips = listOf(
-    RuleChip("⚫", 0.1f, 0.1f, 3000, 0),
-    RuleChip("⚪", 0.85f, 0.15f, 3200, 200),
-    RuleChip("🔴", 0.2f, 0.45f, 2800, 400),
-    RuleChip("🔵", 0.8f, 0.5f, 3100, 600),
-    RuleChip("❓", 0.5f, 0.2f, 3100, 0, true),
-    RuleChip("❓", 0.6f, 0.7f, 2900, 500, true),
-)
 
 @Composable
 fun RulesScreen(onNavigate: (String) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgColor)
     ) {
-        // Fondo Animado
-        BoxWithConstraints {
-            ruleChips.forEach { chip ->
-                AnimatedRuleChip(chip, maxHeight)
-            }
-        }
+        Image(
+            painter = painterResource(id = R.drawable.nuevofondomovil),
+            contentDescription = "Fondo",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
 
         Column(
             modifier = Modifier
@@ -69,33 +56,40 @@ fun RulesScreen(onNavigate: (String) -> Unit) {
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(60.dp))
-
-            // Header
-            Text(
-                text = "Reglas de Random Reversi",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = TextColor,
-                textAlign = TextAlign.Center
-            )
-
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Panel de reglas (Glassmorphism)
-            Surface(
+            // Header
+            Image(
+                painter = painterResource(id = R.drawable.tituloreglas),
+                contentDescription = "Reglas de Random Reversi",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .height(115.dp)
+                    .zIndex(1f) // Para dibujar encima de la libreta
+                    .offset(y = 25.dp) // Baja el gráfico de manera que solapa
+            )
+
+            // Se elimina el Spacer intermedio para maximizar el factor de solapamiento
+
+            // Panel de reglas (Libreta)
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-                color = Color(0xFF0F1231).copy(alpha = 0.55f),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, BorderColor)
+                    .fillMaxWidth()
             ) {
+                Image(
+                    painter = painterResource(id = R.drawable.libretareglas),
+                    contentDescription = "Libreta",
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier.fillMaxSize()
+                )
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .padding(start = 32.dp, end = 32.dp, top = 40.dp, bottom = 20.dp)
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp)
                 ) {
                     RuleSectionTitle("📜 Cómo jugar")
                     RuleTextBold("🎯 Objetivo:", " terminar con más puntos que el resto de jugadores.")
@@ -140,22 +134,24 @@ fun RulesScreen(onNavigate: (String) -> Unit) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Spacer(modifier = Modifier.height(24.dp)) -- removido para el solapamiento
 
-            // Botón Volver con estilo estandarizado (PrimaryColor)
-            Button(
-                onClick = { onNavigate("menu") },
+            // Botón Volver con la gráfica retro
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
-                shape = RoundedCornerShape(12.dp)
+                    .fillMaxWidth()
+                    .offset(y = (-10).dp) // Lo bajamos un poco (antes era -25)
+                    .zIndex(1f),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Volver al menú",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                Image(
+                    painter = painterResource(id = R.drawable.botonvolvermenu),
+                    contentDescription = "Volver al menú",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .height(100.dp)
+                        .clickable { onNavigate("menu") }
                 )
             }
 
@@ -168,14 +164,13 @@ fun RulesScreen(onNavigate: (String) -> Unit) {
 private fun SkillExpandable(title: String, description: String) {
     var expanded by remember { mutableStateOf(false) }
 
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .clickable { expanded = !expanded },
-        color = Color(0xFF1F244F).copy(alpha = 0.55f),
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, PrimaryColor.copy(alpha = 0.3f))
+            .clickable { expanded = !expanded }
+            .background(Color.Black.copy(0.05f), RoundedCornerShape(8.dp))
+            .border(1.dp, Color.Black.copy(0.2f), RoundedCornerShape(8.dp))
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -183,17 +178,17 @@ private fun SkillExpandable(title: String, description: String) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(title, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Icon(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = Color.White
+                    tint = Color.Black
                 )
             }
             AnimatedVisibility(visible = expanded) {
                 Text(
                     text = description,
-                    color = Color(0xFFD3D7FF),
+                    color = Color.DarkGray,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 8.dp),
                     lineHeight = 18.sp
@@ -207,9 +202,9 @@ private fun SkillExpandable(title: String, description: String) {
 private fun RuleSectionTitle(text: String) {
     Text(
         text = text,
-        color = Color.White,
+        color = Color.Black,
         fontSize = 17.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.Black,
         modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
     )
 }
@@ -218,7 +213,7 @@ private fun RuleSectionTitle(text: String) {
 private fun RuleText(text: String) {
     Text(
         text = text,
-        color = Color(0xFFD3D7FF),
+        color = Color.DarkGray,
         fontSize = 14.sp,
         lineHeight = 20.sp,
         modifier = Modifier.padding(bottom = 8.dp)
@@ -230,12 +225,12 @@ private fun RuleText(text: String) {
 private fun RuleTextBold(boldPart: String, normalPart: String) {
     Text(
         text = buildAnnotatedString {
-            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+            withStyle(style = SpanStyle(fontWeight = FontWeight.Black)) {
                 append(boldPart)
             }
             append(normalPart)
         },
-        color = Color(0xFFD3D7FF),
+        color = Color.DarkGray,
         fontSize = 14.sp,
         lineHeight = 20.sp,
         modifier = Modifier.padding(bottom = 8.dp)
@@ -245,8 +240,8 @@ private fun RuleTextBold(boldPart: String, normalPart: String) {
 @Composable
 private fun BulletPoint(text: String) {
     Row(modifier = Modifier.padding(bottom = 8.dp)) {
-        Text("• ", color = PrimaryColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-        Text(text = text, color = Color(0xFFD3D7FF), fontSize = 14.sp, lineHeight = 20.sp)
+        Text("• ", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 14.sp)
+        Text(text = text, color = Color.DarkGray, fontSize = 14.sp, lineHeight = 20.sp)
     }
 }
 
@@ -275,29 +270,11 @@ private fun BulletPointBold(vararg parts: String) {
                     }
                 }
             },
-            color = Color(0xFFD3D7FF),
+            color = Color.DarkGray,
             fontSize = 14.sp,
             lineHeight = 20.sp
         )
     }
 }
 
-@Composable
-private fun AnimatedRuleChip(chip: RuleChip, screenHeight: Dp) {
-    val infiniteTransition = rememberInfiniteTransition(label = "")
-    val yOffset by infiniteTransition.animateFloat(
-        initialValue = 0f, targetValue = 20f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(chip.durationMs, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-            initialStartOffset = StartOffset(chip.delayMs)
-        ), label = ""
-    )
-    Text(
-        text = chip.emoji,
-        fontSize = if (chip.isQuestion) 28.sp else 32.sp,
-        modifier = Modifier
-            .offset(x = (280.dp) * chip.startXFraction, y = (screenHeight * chip.startYFraction) + yOffset.dp)
-            .alpha(0.2f)
-    )
-}
+// Removed AnimatedRuleChip

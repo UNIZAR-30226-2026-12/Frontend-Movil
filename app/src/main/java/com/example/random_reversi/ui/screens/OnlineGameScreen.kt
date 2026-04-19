@@ -170,9 +170,9 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                             Text(
                                 text = "$userElo RR",
                                 color = Color.Black,
-                                fontSize = 24.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(top = 18.dp)
+                                modifier = Modifier.padding(top = 10.dp) // Reducimos el padding de 18 a 10 para subirlo
                             )
                         }
                     }
