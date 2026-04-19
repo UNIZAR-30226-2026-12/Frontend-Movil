@@ -79,7 +79,7 @@ fun RulesScreen(onNavigate: (String) -> Unit) {
                     .fillMaxWidth()
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.libretareglas),
+                    painter = painterResource(id = R.drawable.libretareglas2),
                     contentDescription = "Libreta",
                     contentScale = ContentScale.FillBounds,
                     modifier = Modifier.fillMaxSize()

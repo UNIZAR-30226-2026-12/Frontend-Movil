@@ -26,6 +26,11 @@ import com.example.random_reversi.data.remote.RankingEntry
 import com.example.random_reversi.ui.theme.*
 import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.Image
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.alpha
+import com.example.random_reversi.R
 
 @Composable
 fun RankingScreen(onNavigate: (String) -> Unit) {
@@ -56,54 +61,73 @@ fun RankingScreen(onNavigate: (String) -> Unit) {
         fetchRankingData()
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(BgColor)) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.nuevofondomovil),
+            contentDescription = "Fondo",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(50.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // --- Header con Título y Botón de Actualizar ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex(1f)
+                    .offset(y = 25.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Ranking Global", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = TextColor)
-                    Text("Top jugadores por ELO (RR)", fontSize = 13.sp, color = TextMutedColor)
-                }
+                Image(
+                    painter = painterResource(id = R.drawable.rankingglobal),
+                    contentDescription = "Ranking Global",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth(0.65f)
+                        .height(105.dp)
+                        .padding(start = 16.dp)
+                )
 
-                Button(
-                    onClick = { fetchRankingData(isRefresh = true) },
-                    enabled = !isRefreshing && !isLoading,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.06f),
-                        disabledContainerColor = Color.White.copy(alpha = 0.03f)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                    modifier = Modifier.height(40.dp)
-                ) {
-                    Text(
-                        text = if (isRefreshing) "Actualizando..." else "Actualizar",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Image(
+                    painter = painterResource(id = R.drawable.actualizar),
+                    contentDescription = "Actualizar",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 16.dp)
+                        .size(112.dp)
+                        .alpha(if (isRefreshing || isLoading) 0.5f else 1f)
+                        .clickable(enabled = !isRefreshing && !isLoading) {
+                            fetchRankingData(isRefresh = true)
+                        }
+                )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
             // --- Contenido ---
-            if (isLoading && !isRefreshing) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.libretareglas2),
+                    contentDescription = "Muro de Ranking",
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+                if (isLoading && !isRefreshing) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = PrimaryColor)
                 }
             } else if (errorMsg != null && ranking.isEmpty()) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(errorMsg!!, color = Color(0xFFF87171), fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(12.dp))
@@ -117,7 +141,7 @@ fun RankingScreen(onNavigate: (String) -> Unit) {
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 40.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
@@ -131,26 +155,31 @@ fun RankingScreen(onNavigate: (String) -> Unit) {
                     }
                     if (ranking.isEmpty() && !isLoading) {
                         item {
-                            Text("No hay datos de ranking", color = TextMutedColor, modifier = Modifier.padding(20.dp))
+                            Text("No hay datos de ranking", color = Color.DarkGray, modifier = Modifier.padding(20.dp))
                         }
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // --- Botón de Volver ---
-            Button(
-                onClick = { onNavigate("menu") },
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
-                shape = RoundedCornerShape(12.dp)
+                    .fillMaxWidth()
+                    .offset(y = (-25).dp)
+                    .zIndex(1f),
+                contentAlignment = Alignment.Center
             ) {
-                Text("Volver al menú", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Image(
+                    painter = painterResource(id = R.drawable.botonvolvermenu),
+                    contentDescription = "Volver al menú",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .height(100.dp)
+                        .clickable { onNavigate("menu") }
+                )
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -158,14 +187,14 @@ fun RankingScreen(onNavigate: (String) -> Unit) {
 @Composable
 private fun RankingItem(position: Int, entry: RankingEntry, isCurrentUser: Boolean, onClick: () -> Unit) {
     val medalColor = when (position) {
-        1 -> Color(0xFFFFD700) // Oro
-        2 -> Color(0xFFC0C0C0) // Plata
+        1 -> Color(0xFFD4AF37) // Oro oscuro para contrastar con papel
+        2 -> Color(0xFFA0A0A0) // Plata
         3 -> Color(0xFFCD7F32) // Bronce
         else -> null
     }
 
-    val bgColor = if (isCurrentUser) Color(0xFFFBBF24).copy(alpha = 0.12f) else SurfaceColor
-    val strokeColor = if (isCurrentUser) Color(0xFFFBBF24).copy(alpha = 0.55f) else (medalColor?.copy(0.5f) ?: BorderColor)
+    val bgColor = if (isCurrentUser) Color.Black.copy(alpha = 0.08f) else Color.Transparent
+    val strokeColor = if (isCurrentUser) Color.Black.copy(alpha = 0.4f) else (medalColor?.copy(0.6f) ?: Color.Black.copy(0.15f))
 
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -180,7 +209,7 @@ private fun RankingItem(position: Int, entry: RankingEntry, isCurrentUser: Boole
             // Posición
             Box(
                 modifier = Modifier.size(36.dp).background(
-                    medalColor?.copy(0.2f) ?: SurfaceLightColor, CircleShape
+                    medalColor?.copy(0.15f) ?: Color.Black.copy(0.05f), CircleShape
                 ),
                 contentAlignment = Alignment.Center
             ) {
@@ -188,7 +217,7 @@ private fun RankingItem(position: Int, entry: RankingEntry, isCurrentUser: Boole
                     "#$position",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = medalColor ?: TextMutedColor
+                    color = medalColor ?: Color.DarkGray
                 )
             }
 
@@ -235,7 +264,7 @@ private fun RankingItem(position: Int, entry: RankingEntry, isCurrentUser: Boole
                 entry.username,
                 modifier = Modifier.weight(1f),
                 fontWeight = FontWeight.Bold,
-                color = TextColor,
+                color = Color.Black,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -243,14 +272,14 @@ private fun RankingItem(position: Int, entry: RankingEntry, isCurrentUser: Boole
 
             // ELO
             Surface(
-                color = Color(0xFFFBBF24).copy(alpha = 0.12f),
+                color = medalColor?.copy(0.1f) ?: Color.Black.copy(0.05f),
                 shape = RoundedCornerShape(99.dp),
-                border = BorderStroke(1.dp, Color(0xFFFBBF24).copy(alpha = 0.35f))
+                border = BorderStroke(1.dp, medalColor?.copy(0.3f) ?: Color.Black.copy(0.15f))
             ) {
                 Text(
                     "${entry.elo} RR",
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFFFBBF24),
+                    color = medalColor ?: Color.DarkGray,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
