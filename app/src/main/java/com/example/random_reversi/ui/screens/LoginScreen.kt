@@ -76,15 +76,6 @@ fun LoginScreen(
                     fontSize = 22.sp
                 )
 
-                // Error
-                errorMessage?.let {
-                    Text(
-                        text = it,
-                        color = SecondaryColor,
-                        fontSize = 13.sp
-                    )
-                }
-
                 // Inputs
                 AuthTextInput(
                     label = "Usuario o Correo",
@@ -104,6 +95,15 @@ fun LoginScreen(
                     modifier = Modifier.padding(start = 20.dp, end = 24.dp)
                 )
 
+                // Error
+                errorMessage?.let {
+                    Text(
+                        text = it,
+                        color = Color.Red,
+                        fontSize = 13.sp
+                    )
+                }
+
                 Spacer(modifier = Modifier.weight(1f))
 
                 // Boton Entrar gráfico nativo
@@ -111,11 +111,13 @@ fun LoginScreen(
                     painter = painterResource(id = R.drawable.botonentrar),
                     contentDescription = "Entrar",
                     modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .height(55.dp)
+                        .fillMaxWidth(1f)
+                        .height(70.dp)
                         .padding(bottom = 8.dp)
                         .clickable(enabled = !isLoading) {
-                            if (email.isNotEmpty() && password.isNotEmpty()) {
+                            if (email.isEmpty() || password.isEmpty()) {
+                                errorMessage = "Por favor, rellena todos los campos."
+                            } else {
                                 errorMessage = null
                                 isLoading = true
 
@@ -137,6 +139,17 @@ fun LoginScreen(
                 )
             }
 
+            // Botón X (Cerrar) en la esquina superior derecha
+            Image(
+                painter = painterResource(id = R.drawable.x),
+                contentDescription = "Cerrar",
+                modifier = Modifier
+                    .size(28.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-58).dp, y = 115.dp)
+                    .clickable { onClose() },
+                contentScale = ContentScale.Fit
+            )
         }
     }
 }

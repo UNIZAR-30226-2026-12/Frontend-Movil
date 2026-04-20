@@ -21,7 +21,12 @@ object AuthRepository {
                 SessionManager.setToken(token)
                 AuthResult.Success(token = token)
             } else {
-                AuthResult.Error("Login fallido (${response.code()})")
+                val errorMsg = when(response.code()) {
+                    404 -> "El usuario o correo ingresado no existe"
+                    401 -> "Contraseña incorrecta"
+                    else -> "Login fallido (${response.code()})"
+                }
+                AuthResult.Error(errorMsg)
             }
         } catch (e: Exception) {
             AuthResult.Error(e.message ?: "Error de conexión")

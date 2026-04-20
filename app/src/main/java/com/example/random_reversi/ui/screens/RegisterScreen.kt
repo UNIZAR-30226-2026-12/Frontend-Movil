@@ -138,9 +138,9 @@ fun RegisterScreen(
                     painter = painterResource(id = R.drawable.botonregistro),
                     contentDescription = "Registrarse",
                     modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .height(55.dp)
-                        .padding(bottom = 8.dp)
+                        .fillMaxWidth(1.2f)
+                        .height(85.dp)
+                        .padding(bottom = 32.dp)
                         .clickable(enabled = !isLoading) {
                             if (username.isNotEmpty() && email.isNotEmpty() && 
                                 password.isNotEmpty() && password == confirmPassword && !isLoading) {
@@ -173,6 +173,18 @@ fun RegisterScreen(
                     contentScale = ContentScale.Fit
                 )
             }
+
+            // Botón X (Cerrar) en la esquina superior derecha
+            Image(
+                painter = painterResource(id = R.drawable.x),
+                contentDescription = "Cerrar",
+                modifier = Modifier
+                    .size(28.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-58).dp, y = 125.dp)
+                    .clickable { onClose() },
+                contentScale = ContentScale.Fit
+            )
         }
     }
 }
