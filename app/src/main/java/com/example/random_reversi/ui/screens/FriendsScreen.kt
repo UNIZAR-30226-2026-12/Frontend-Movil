@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -253,54 +254,88 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                     .fillMaxWidth(0.55f)
                             )
                         } else {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 42.dp, start = 16.dp, end = 16.dp, bottom = 12.dp)
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                data.friends.forEach { friend ->
-                                    FriendRow(
-                                        friend = friend,
-                                        onProfile = { onNavigate("profile/${friend.id}/${Uri.encode(friend.name)}/friends") },
-                                        onChat = {
-                                            chatFriend = friend
-                                            chatLoading = true
-                                            scope.launch {
-                                                when (val result = FriendsRepository.getChatHistory(friend.id)) {
-                                                    is UserResult.Success -> chatMessages = result.data
-                                                    is UserResult.Error -> chatMessages = emptyList()
+                            val scrollState = rememberScrollState()
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(top = 42.dp, start = 16.dp, end = 34.dp, bottom = 12.dp)
+                                        .verticalScroll(scrollState),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    data.friends.forEach { friend ->
+                                        FriendRow(
+                                            friend = friend,
+                                            onProfile = { onNavigate("profile/${friend.id}/${Uri.encode(friend.name)}/friends") },
+                                            onChat = {
+                                                chatFriend = friend
+                                                chatLoading = true
+                                                scope.launch {
+                                                    when (val result = FriendsRepository.getChatHistory(friend.id)) {
+                                                        is UserResult.Success -> chatMessages = result.data
+                                                        is UserResult.Error -> chatMessages = emptyList()
+                                                    }
+                                                    FriendsRepository.markChatRead(friend.id)
+                                                    chatLoading = false
                                                 }
-                                                FriendsRepository.markChatRead(friend.id)
-                                                chatLoading = false
-                                            }
-                                        },
-                                        onInvite1v1 = {
-                                            scope.launch {
-                                                when (val result = GamesRepository.inviteFriends("1vs1", listOf(friend.id))) {
-                                                    is UserResult.Success -> onNavigate("waiting-room/1vs1/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
-                                                    is UserResult.Error -> showToast(result.message)
+                                            },
+                                            onInvite1v1 = {
+                                                scope.launch {
+                                                    when (val result = GamesRepository.inviteFriends("1vs1", listOf(friend.id))) {
+                                                        is UserResult.Success -> onNavigate("waiting-room/1vs1/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
+                                                        is UserResult.Error -> showToast(result.message)
+                                                    }
+                                                }
+                                            },
+                                            onInvite4p = {
+                                                scope.launch {
+                                                    when (val result = GamesRepository.inviteFriends("1vs1vs1vs1", listOf(friend.id))) {
+                                                        is UserResult.Success -> onNavigate("waiting-room/1vs1vs1vs1/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
+                                                        is UserResult.Error -> showToast(result.message)
+                                                    }
+                                                }
+                                            },
+                                            onRemove = {
+                                                scope.launch {
+                                                    when (FriendsRepository.removeFriend(friend.id)) {
+                                                        is UserResult.Success -> loadPanel()
+                                                        is UserResult.Error -> showToast("Error al eliminar")
+                                                    }
                                                 }
                                             }
-                                        },
-                                        onInvite4p = {
-                                            scope.launch {
-                                                when (val result = GamesRepository.inviteFriends("1vs1vs1vs1", listOf(friend.id))) {
-                                                    is UserResult.Success -> onNavigate("waiting-room/1vs1vs1vs1/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
-                                                    is UserResult.Error -> showToast(result.message)
-                                                }
-                                            }
-                                        },
-                                        onRemove = {
-                                            scope.launch {
-                                                when (FriendsRepository.removeFriend(friend.id)) {
-                                                    is UserResult.Success -> loadPanel()
-                                                    is UserResult.Error -> showToast("Error al eliminar")
-                                                }
-                                            }
+                                        )
+                                    }
+                                }
+                                if (scrollState.maxValue > 0) {
+                                    val safeFraction = (scrollState.value.toFloat() / scrollState.maxValue.toFloat()).coerceIn(0f, 1f)
+
+                                    Column(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .fillMaxHeight()
+                                            .padding(end = 26.dp, top = 42.dp, bottom = 12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("▲", color = Color.Black.copy(alpha = 0.4f), fontSize = 10.sp)
+                                        androidx.compose.foundation.layout.BoxWithConstraints(
+                                            modifier = Modifier
+                                                .width(4.dp)
+                                                .weight(1f)
+                                                .padding(vertical = 2.dp)
+                                                .background(Color.Black.copy(alpha = 0.15f), CircleShape)
+                                        ) {
+                                            val thumbHeight = 24.dp
+                                            val maxOffset = maxHeight - thumbHeight
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(4.dp)
+                                                    .height(thumbHeight)
+                                                    .offset(y = maxOffset * safeFraction)
+                                                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                            )
                                         }
-                                    )
+                                        Text("▼", color = Color.Black.copy(alpha = 0.4f), fontSize = 10.sp)
+                                    }
                                 }
                             }
                         }
@@ -316,7 +351,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                             painter = painterResource(id = R.drawable.solicitudes),
                             contentDescription = "Solicitudes",
                             contentScale = ContentScale.FillBounds,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxHeight().fillMaxWidth(0.975f).align(Alignment.CenterStart)
                         )
 
                         if (data.requests.isEmpty()) {
@@ -348,27 +383,60 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                 )
                             }
                         } else {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 42.dp, start = 16.dp, end = 16.dp, bottom = 12.dp)
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                data.requests.forEach { req ->
-                                    RequestRow(
-                                        friend = req,
-                                        onAccept = {
-                                            scope.launch {
-                                                if (FriendsRepository.acceptFriendRequest(req.id) is UserResult.Success) loadPanel()
+                            val scrollState = rememberScrollState()
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(top = 42.dp, start = 16.dp, end = 34.dp, bottom = 12.dp)
+                                        .verticalScroll(scrollState),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    data.requests.forEach { req ->
+                                        RequestRow(
+                                            friend = req,
+                                            onAccept = {
+                                                scope.launch {
+                                                    if (FriendsRepository.acceptFriendRequest(req.id) is UserResult.Success) loadPanel()
+                                                }
+                                            },
+                                            onReject = {
+                                                scope.launch {
+                                                    if (FriendsRepository.rejectFriendRequest(req.id) is UserResult.Success) loadPanel()
+                                                }
                                             }
-                                        },
-                                        onReject = {
-                                            scope.launch {
-                                                if (FriendsRepository.rejectFriendRequest(req.id) is UserResult.Success) loadPanel()
-                                            }
+                                        )
+                                    }
+                                }
+                                if (scrollState.maxValue > 0) {
+                                    val safeFraction = (scrollState.value.toFloat() / scrollState.maxValue.toFloat()).coerceIn(0f, 1f)
+                                    Column(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .fillMaxHeight()
+                                            .padding(end = 26.dp, top = 42.dp, bottom = 12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("▲", color = Color.Black.copy(alpha = 0.4f), fontSize = 10.sp)
+                                        androidx.compose.foundation.layout.BoxWithConstraints(
+                                            modifier = Modifier
+                                                .width(4.dp)
+                                                .weight(1f)
+                                                .padding(vertical = 2.dp)
+                                                .background(Color.Black.copy(alpha = 0.15f), CircleShape)
+                                        ) {
+                                            val thumbHeight = 24.dp
+                                            val maxOffset = maxHeight - thumbHeight
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(4.dp)
+                                                    .height(thumbHeight)
+                                                    .offset(y = maxOffset * safeFraction)
+                                                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                            )
                                         }
-                                    )
+                                        Text("▼", color = Color.Black.copy(alpha = 0.4f), fontSize = 10.sp)
+                                    }
                                 }
                             }
                         }
@@ -384,7 +452,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                             painter = painterResource(id = R.drawable.solicitudesjuego),
                             contentDescription = null,
                             contentScale = ContentScale.FillBounds,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxHeight().fillMaxWidth(1.36f).align(Alignment.CenterStart)
                         )
 
                         if (data.gameRequests.isEmpty()) {
@@ -398,36 +466,69 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                     .fillMaxWidth(0.68f)
                             )
                         } else {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 42.dp, start = 16.dp, end = 16.dp, bottom = 12.dp)
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                data.gameRequests.forEach { invite ->
-                                    GameInviteRow(
-                                        invite = invite,
-                                        onAccept = {
-                                            scope.launch {
-                                                when (val result = GamesRepository.acceptGameInvite(invite.lobby_id)) {
-                                                    is UserResult.Success -> {
-                                                        val mode = when (invite.gameMode?.lowercase()) {
-                                                            "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
-                                                            else -> "1vs1"
+                            val scrollState = rememberScrollState()
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(top = 42.dp, start = 16.dp, end = 34.dp, bottom = 12.dp)
+                                        .verticalScroll(scrollState),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    data.gameRequests.forEach { invite ->
+                                        GameInviteRow(
+                                            invite = invite,
+                                            onAccept = {
+                                                scope.launch {
+                                                    when (val result = GamesRepository.acceptGameInvite(invite.lobby_id)) {
+                                                        is UserResult.Success -> {
+                                                            val mode = when (invite.gameMode?.lowercase()) {
+                                                                "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
+                                                                else -> "1vs1"
+                                                            }
+                                                            onNavigate("waiting-room/$mode/${result.data}/friends")
                                                         }
-                                                        onNavigate("waiting-room/$mode/${result.data}/friends")
+                                                        is UserResult.Error -> showToast(result.message)
                                                     }
-                                                    is UserResult.Error -> showToast(result.message)
+                                                }
+                                            },
+                                            onReject = {
+                                                scope.launch {
+                                                    if (GamesRepository.rejectGameInvite(invite.lobby_id) is UserResult.Success) loadPanel()
                                                 }
                                             }
-                                        },
-                                        onReject = {
-                                            scope.launch {
-                                                if (GamesRepository.rejectGameInvite(invite.lobby_id) is UserResult.Success) loadPanel()
-                                            }
+                                        )
+                                    }
+                                }
+                                if (scrollState.maxValue > 0) {
+                                    val safeFraction = (scrollState.value.toFloat() / scrollState.maxValue.toFloat()).coerceIn(0f, 1f)
+                                    Column(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .fillMaxHeight()
+                                            .padding(end = 26.dp, top = 42.dp, bottom = 12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("▲", color = Color.Black.copy(alpha = 0.4f), fontSize = 10.sp)
+                                        androidx.compose.foundation.layout.BoxWithConstraints(
+                                            modifier = Modifier
+                                                .width(4.dp)
+                                                .weight(1f)
+                                                .padding(vertical = 2.dp)
+                                                .background(Color.Black.copy(alpha = 0.15f), CircleShape)
+                                        ) {
+                                            val thumbHeight = 24.dp
+                                            val maxOffset = maxHeight - thumbHeight
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(4.dp)
+                                                    .height(thumbHeight)
+                                                    .offset(y = maxOffset * safeFraction)
+                                                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                            )
                                         }
-                                    )
+                                        Text("▼", color = Color.Black.copy(alpha = 0.4f), fontSize = 10.sp)
+                                    }
                                 }
                             }
                         }
@@ -443,7 +544,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                             painter = painterResource(id = R.drawable.partidaspausadas),
                             contentDescription = null,
                             contentScale = ContentScale.FillBounds,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxHeight().fillMaxWidth(1.3f).align(Alignment.CenterStart)
                         )
 
                         if (data.pausedGames.isEmpty()) {
@@ -457,24 +558,57 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                     .fillMaxWidth(0.55f)
                             )
                         } else {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 42.dp, start = 16.dp, end = 16.dp, bottom = 12.dp)
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                data.pausedGames.forEach { paused ->
-                                    PausedGameRow(
-                                        game = paused,
-                                        onResume = {
-                                            val mode = when (paused.mode.lowercase()) {
-                                                "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
-                                                else -> "1vs1"
+                            val scrollState = rememberScrollState()
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(top = 42.dp, start = 16.dp, end = 34.dp, bottom = 12.dp)
+                                        .verticalScroll(scrollState),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    data.pausedGames.forEach { paused ->
+                                        PausedGameRow(
+                                            game = paused,
+                                            onResume = {
+                                                val mode = when (paused.mode.lowercase()) {
+                                                    "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
+                                                    else -> "1vs1"
+                                                }
+                                                onNavigate("waiting-room/$mode/${paused.game_id}/friends")
                                             }
-                                            onNavigate("waiting-room/$mode/${paused.game_id}/friends")
+                                        )
+                                    }
+                                }
+                                if (scrollState.maxValue > 0) {
+                                    val safeFraction = (scrollState.value.toFloat() / scrollState.maxValue.toFloat()).coerceIn(0f, 1f)
+                                    Column(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .fillMaxHeight()
+                                            .padding(end = 26.dp, top = 42.dp, bottom = 12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("▲", color = Color.Black.copy(alpha = 0.4f), fontSize = 10.sp)
+                                        androidx.compose.foundation.layout.BoxWithConstraints(
+                                            modifier = Modifier
+                                                .width(4.dp)
+                                                .weight(1f)
+                                                .padding(vertical = 2.dp)
+                                                .background(Color.Black.copy(alpha = 0.15f), CircleShape)
+                                        ) {
+                                            val thumbHeight = 24.dp
+                                            val maxOffset = maxHeight - thumbHeight
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(4.dp)
+                                                    .height(thumbHeight)
+                                                    .offset(y = maxOffset * safeFraction)
+                                                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                            )
                                         }
-                                    )
+                                        Text("▼", color = Color.Black.copy(alpha = 0.4f), fontSize = 10.sp)
+                                    }
                                 }
                             }
                         }
@@ -669,8 +803,131 @@ private fun FriendRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+            .border(2.dp, Color.Black, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable { expanded = !expanded }
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(contentAlignment = Alignment.TopEnd) {
+                AvatarSmall(friend.avatar_url, friend.name)
+                
+                val statusColor = when (friend.status?.lowercase()) {
+                    "online" -> Color(0xFF4ADE80)
+                    "playing" -> Color(0xFFFBBF24)
+                    else -> Color(0xFF9CA3AF)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(11.dp)
+                        .offset(x = 1.dp, y = -1.dp)
+                        .clip(CircleShape)
+                        .background(statusColor)
+                        .border(1.dp, Color.Black, CircleShape)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                friend.name,
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(0.6f)
+            )
+
+            Surface(
+                color = Color(0xFFFBBF24),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black)
+            ) {
+                Text(
+                    "${friend.rr} RR",
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+            Spacer(modifier = Modifier.weight(0.1f))
+
+            val unread = friend.unread_count ?: 0
+            if (unread > 0) {
+                Surface(
+                    color = PrimaryColor,
+                    shape = CircleShape,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black)
+                ) {
+                    Text(
+                        text = if (unread > 9) "9+" else "$unread",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .border(1.5.dp, Color.Black, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (expanded) "-" else "+",
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.offset(y = (-1).dp)
+                )
+            }
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                ActionButton("Perfil", AccentGreen, Modifier.weight(1f)) { onProfile() }
+                ActionButton("Chat", Color(0xFF3B82F6), Modifier.weight(1f)) { onChat() }
+                ActionButton("1v1", SecondaryColor, Modifier.weight(1f)) { onInvite1v1() }
+                ActionButton("4P", Color(0xFF8B5CF6), Modifier.weight(1f)) { onInvite4p() }
+                ActionButton("🗑️", Color(0xFFF87171), Modifier.weight(0.5f)) { onRemove() }
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Fila de solicitud de amistad
+// ══════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun RequestRow(
+    friend: FriendInfo,
+    onAccept: () -> Unit,
+    onReject: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+            .border(2.dp, Color.Black, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { expanded = !expanded }
+            .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -691,7 +948,8 @@ private fun FriendRow(
 
             Surface(
                 color = Color(0xFFFBBF24),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black)
             ) {
                 Text(
                     "${friend.rr} RR",
@@ -701,33 +959,21 @@ private fun FriendRow(
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
+
             Spacer(modifier = Modifier.weight(0.1f))
 
-            val unread = friend.unread_count ?: 0
-            if (unread > 0) {
-                Surface(
-                    color = PrimaryColor,
-                    shape = CircleShape
-                ) {
-                    Text(
-                        text = if (unread > 9) "9+" else "$unread",
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                    )
-                }
-            } else {
-                val statusColor = when (friend.status?.lowercase()) {
-                    "online" -> Color(0xFF4ADE80)
-                    "playing" -> Color(0xFFFBBF24)
-                    else -> Color(0xFF9CA3AF)
-                }
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(statusColor)
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .border(1.5.dp, Color.Black, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (expanded) "-" else "+",
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.offset(y = (-1).dp)
                 )
             }
         }
@@ -739,63 +985,10 @@ private fun FriendRow(
                     .padding(top = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                ActionButton("Perfil", AccentGreen, Modifier.weight(1f)) { onProfile() }
-                ActionButton("Chat", Color(0xFF3B82F6), Modifier.weight(1f)) { onChat() }
-                ActionButton("1v1", SecondaryColor, Modifier.weight(1f)) { onInvite1v1() }
-                ActionButton("4P", Color(0xFF8B5CF6), Modifier.weight(1f)) { onInvite4p() }
-                ActionButton("✕", Color(0xFFF87171), Modifier.weight(0.5f)) { onRemove() }
+                ActionButton("✓ Aceptar", AccentGreen, Modifier.weight(1f)) { onAccept() }
+                ActionButton("✕ Rechazar", Color(0xFFF87171), Modifier.weight(1f)) { onReject() }
             }
         }
-    }
-}
-
-// ══════════════════════════════════════════════════════════════════════
-//  Fila de solicitud de amistad
-// ══════════════════════════════════════════════════════════════════════
-
-@Composable
-private fun RequestRow(
-    friend: FriendInfo,
-    onAccept: () -> Unit,
-    onReject: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AvatarSmall(friend.avatar_url, friend.name)
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Text(
-            friend.name,
-            color = TextColor,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(0.6f)
-        )
-
-        Surface(
-            color = Color(0xFFFBBF24),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Text(
-                "${friend.rr} RR",
-                color = Color.Black,
-                fontWeight = FontWeight.Bold,
-                fontSize = 11.sp,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.weight(0.1f))
-
-        ActionButton("✓", AccentGreen, Modifier.width(36.dp)) { onAccept() }
-        Spacer(modifier = Modifier.width(4.dp))
-        ActionButton("✕", Color(0xFFF87171), Modifier.width(36.dp)) { onReject() }
     }
 }
 
@@ -809,33 +1002,66 @@ private fun GameInviteRow(
     onAccept: () -> Unit,
     onReject: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
     val modeLabel = when (invite.gameMode?.lowercase()) {
         "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
         else -> "1vs1"
     }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+            .border(2.dp, Color.Black, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { expanded = !expanded }
+            .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
-        AvatarSmall(invite.avatar_url, invite.name ?: "?")
-        Spacer(modifier = Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                invite.name ?: "Desconocido",
-                color = TextColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text("Modo: $modeLabel", color = TextMutedColor, fontSize = 11.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AvatarSmall(invite.avatar_url, invite.name ?: "?")
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    invite.name ?: "Desconocido",
+                    color = TextColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text("Modo: $modeLabel", color = TextMutedColor, fontSize = 11.sp)
+            }
+            
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .border(1.5.dp, Color.Black, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (expanded) "-" else "+",
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.offset(y = (-1).dp)
+                )
+            }
         }
-        ActionButton("Unirse", AccentGreen) { onAccept() }
-        Spacer(modifier = Modifier.width(4.dp))
-        ActionButton("✕", Color(0xFFF87171), Modifier.width(36.dp)) { onReject() }
+
+        AnimatedVisibility(visible = expanded) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                ActionButton("Unirse", AccentGreen, Modifier.weight(1f)) { onAccept() }
+                ActionButton("✕ Rechazar", Color(0xFFF87171), Modifier.weight(1f)) { onReject() }
+            }
+        }
     }
 }
 
@@ -848,35 +1074,69 @@ private fun PausedGameRow(
     game: PausedGameInfo,
     onResume: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
     val modeLabel = when (game.mode.lowercase()) {
         "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
         else -> "1vs1"
     }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+            .border(2.dp, Color.Black, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { expanded = !expanded }
+            .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                "Partida $modeLabel",
-                color = TextColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
-            )
-            if (game.participants.isNotEmpty()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Con: ${game.participants.joinToString(", ")}",
-                    color = TextMutedColor,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    "Partida $modeLabel",
+                    color = TextColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                if (game.participants.isNotEmpty()) {
+                    Text(
+                        "Con: ${game.participants.joinToString(", ")}",
+                        color = TextMutedColor,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .border(1.5.dp, Color.Black, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (expanded) "-" else "+",
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.offset(y = (-1).dp)
                 )
             }
         }
-        ActionButton("Reanudar", AccentGreen) { onResume() }
+
+        AnimatedVisibility(visible = expanded) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                ActionButton("Reanudar", AccentGreen, Modifier.weight(1f)) { onResume() }
+            }
+        }
     }
 }
 
@@ -1063,6 +1323,7 @@ private fun ActionButton(
         modifier = modifier.height(32.dp),
         colors = ButtonDefaults.buttonColors(containerColor = color),
         shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
     ) {
         Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)

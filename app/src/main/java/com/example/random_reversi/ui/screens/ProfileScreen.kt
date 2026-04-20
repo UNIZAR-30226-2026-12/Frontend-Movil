@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -226,7 +227,7 @@ fun ProfileScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(70.dp))
             Header(name, elo, avatar, isOwnProfile)
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -286,47 +287,47 @@ fun ProfileScreen(
 
                             Column(
                                 modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
                             ) {
                                 Row(
-                                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    WinRateCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f).fillMaxSize())
-                                    StatsCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f).fillMaxSize())
+                                    WinRateCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f))
+                                    StatsCard(modeStats, activeMode == StatsMode.FourPlayers, Modifier.weight(1f))
                                 }
 
                                 if (isOwnProfile) {
                                     Row(
-                                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        PicoCard(modeStats.peak_elo ?: elo, Modifier.weight(1f).fillMaxSize())
+                                        PicoCard(modeStats.peak_elo ?: elo, Modifier.weight(1f))
                                         NemesisCard(
                                             name = modeStats.nemesis_name ?: "-",
                                             count = modeStats.nemesis_losses ?: 0,
                                             isFourPlayer = activeMode == StatsMode.FourPlayers,
-                                            modifier = Modifier.weight(1f).fillMaxSize()
+                                            modifier = Modifier.weight(1f)
                                         )
                                     }
                                     Row(
-                                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         RachaCard(
                                             streak = modeStats.win_streak,
                                             isFourPlayer = activeMode == StatsMode.FourPlayers,
-                                            modifier = Modifier.weight(1f).fillMaxSize()
+                                            modifier = Modifier.weight(1f)
                                         )
                                         VictimaCard(
                                             name = modeStats.victim_name ?: "-",
                                             count = modeStats.victim_wins ?: 0,
                                             isFourPlayer = activeMode == StatsMode.FourPlayers,
-                                            modifier = Modifier.weight(1f).fillMaxSize()
+                                            modifier = Modifier.weight(1f)
                                         )
                                     }
                                 } else {
-                                    HeadToHeadCard(h2h = h2h, isFourPlayer = activeMode == StatsMode.FourPlayers, modifier = Modifier.weight(1f).fillMaxWidth())
+                                    HeadToHeadCard(h2h = h2h, isFourPlayer = activeMode == StatsMode.FourPlayers, modifier = Modifier.fillMaxWidth())
                                 }
                             }
                         }
@@ -406,15 +407,15 @@ fun ProfileScreen(
                 contentDescription = "Volver al menú",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .heightIn(max = 70.dp)
+                    .fillMaxWidth(0.95f)
+                    .heightIn(max = 90.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = { onNavigate(if (isOwnProfile) "menu" else returnTo) }
                     )
             )
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(45.dp))
         }
     }
 }
@@ -495,7 +496,7 @@ private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile:
             )
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 18.dp)
+                modifier = Modifier.padding(top = 10.dp)
             ) {
                 Text("$elo RR", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
             }
@@ -540,8 +541,8 @@ private fun WinRateCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, mod
         Image(
             painter = painterResource(id = R.drawable.winrate),
             contentDescription = null,
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.fillMaxSize()
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxWidth()
         )
         Column(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -560,24 +561,24 @@ private fun StatsCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, modif
         Image(
             painter = painterResource(id = R.drawable.estadisticas),
             contentDescription = null,
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.fillMaxSize()
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxWidth()
         )
         Column(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp).offset(x = 55.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy((-8).dp)
         ) {
-            Text(modeStats.total_games.toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
+            Text(modeStats.total_games.toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
             if (isFourPlayer) {
-                Text((modeStats.first_place ?: 0).toString(), color = Color(0xFF4ADE80), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text((modeStats.second_place ?: 0).toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text((modeStats.third_place ?: 0).toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text((modeStats.fourth_place ?: 0).toString(), color = Color(0xFFF87171), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text((modeStats.first_place ?: 0).toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text((modeStats.second_place ?: 0).toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text((modeStats.third_place ?: 0).toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text((modeStats.fourth_place ?: 0).toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             } else {
-                Text(modeStats.wins.toString(), color = Color(0xFF4ADE80), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text(modeStats.losses.toString(), color = Color(0xFFF87171), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text(modeStats.draws.toString(), color = Color(0xFFFBBF24), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(modeStats.wins.toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(modeStats.losses.toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(modeStats.draws.toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
     }
@@ -589,10 +590,10 @@ private fun PicoCard(peakElo: Int, modifier: Modifier = Modifier) {
         Image(
             painter = painterResource(id = R.drawable.picorr),
             contentDescription = null,
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.fillMaxSize()
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxWidth()
         )
-        Text("$peakElo RR", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 8.dp))
+        Text("$peakElo RR", color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 32.dp).offset(x = 6.dp))
     }
 }
 
@@ -600,12 +601,12 @@ private fun PicoCard(peakElo: Int, modifier: Modifier = Modifier) {
 private fun NemesisCard(name: String, count: Int, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
     Box(modifier = modifier.clip(RoundedCornerShape(16.dp)), contentAlignment = Alignment.BottomCenter) {
         Image(
-            painter = painterResource(id = R.drawable.nemesis),
+            painter = painterResource(id = R.drawable.nemesis2),
             contentDescription = null,
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.fillMaxSize()
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxWidth()
         )
-        Column(modifier = Modifier.padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier = Modifier.padding(bottom = 8.dp).offset(x = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(name, color = TextColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (count > 0) Text("${if (isFourPlayer) "Superado" else "Derrotas"}: $count", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center)
         }
@@ -618,13 +619,10 @@ private fun RachaCard(streak: Int, isFourPlayer: Boolean, modifier: Modifier = M
         Image(
             painter = painterResource(id = R.drawable.racha),
             contentDescription = null,
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.fillMaxSize()
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxWidth()
         )
-        Column(modifier = Modifier.padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(streak.toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center)
-            Text(if (isFourPlayer) "1º puestos seguidos" else "Victorias seguidas", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center)
-        }
+        Text(streak.toString(), color = TextColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 33.dp))
     }
 }
 
@@ -634,12 +632,12 @@ private fun VictimaCard(name: String, count: Int, isFourPlayer: Boolean, modifie
         Image(
             painter = painterResource(id = R.drawable.victima),
             contentDescription = null,
-            contentScale = ContentScale.FillBounds,
-            modifier = Modifier.fillMaxSize()
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxWidth()
         )
-        Column(modifier = Modifier.padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier = Modifier.padding(top = 22.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(name, color = TextColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (count > 0) Text("${if (isFourPlayer) "Superado" else "Victorias"}: $count", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center)
+            if (count > 0) Text("${if (isFourPlayer) "Superado" else "Victorias"}: $count", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.offset(x = 8.dp))
         }
     }
 }
