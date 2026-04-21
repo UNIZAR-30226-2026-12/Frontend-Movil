@@ -76,7 +76,7 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
         // Fondo General
         Image(
-            painter = painterResource(id = R.drawable.nuevofondoreversi),
+            painter = painterResource(id = R.drawable.nuevofondomovil),
             contentDescription = "Fondo",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()

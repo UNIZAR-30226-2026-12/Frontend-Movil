@@ -12,72 +12,91 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.random_reversi.ui.theme.*
-
-// Colores de fichas profesionales (aprobados)
-private val MutedRed = Color(0xFFB71C1C)
-private val MutedBlue = Color(0xFF0D47A1)
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 @Composable
 fun GameModeModal(
     isOpen: Boolean,
     onClose: () -> Unit,
-    title: String = "Crear nueva partida",
-    subtitle: String = "Elige el modo para tu sala pública",
+    title: String = "Seleccionar modo de juego",
+    subtitle: String = "Elige que modo quieres jugar",
     onSelectMode: (String) -> Unit
 ) {
-    AppModal(
-        isOpen = isOpen,
-        onClose = onClose,
-        maxWidth = 450.dp
+    if (!isOpen) return
+
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Column(
+        // Envoltorio estilo popup-surface del front web
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth(0.9f)
+                .widthIn(max = 450.dp)
+                .background(Color(0xFFF7F1E5), RoundedCornerShape(16.dp))
+                .border(2.dp, Color(0xFF2F2418), RoundedCornerShape(16.dp))
+                .padding(24.dp)
         ) {
-            // Header
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = title,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextColor
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = subtitle,
-                    fontSize = 14.sp,
-                    color = TextMutedColor,
-                    textAlign = TextAlign.Center
-                )
+            // Botón cerrar (X)
+            Text(
+                text = "✖",
+                color = Color(0xFF4D3F31).copy(alpha = 0.6f),
+                fontSize = 16.sp,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 8.dp, y = (-8).dp)
+                    .clickable(onClick = onClose)
+                    .padding(8.dp)
+            )
+
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Header
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = title,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF1F1711),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = subtitle,
+                        fontSize = 15.sp,
+                        color = Color(0xFF4D3F31),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                // Opciones de modo
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    GameModeCard(
+                        title = "1 vs 1",
+                        description = "Duelo de 2 jugadores",
+                        is16x16 = false,
+                        onClick = { onSelectMode("1vs1") }
+                    )
+
+                    GameModeCard(
+                        title = "1 vs 1 vs 1 vs 1",
+                        description = "Todos contra todos de 4 jugadores",
+                        is16x16 = true,
+                        onClick = { onSelectMode("1vs1vs1vs1") }
+                    )
+                }
             }
-
-            // Opciones de modo
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                GameModeCard(
-                    title = "1 vs 1",
-                    description = "Duelo\n2 jugadores",
-                    is16x16 = false,
-                    onClick = { onSelectMode("1vs1") }
-                )
-
-                GameModeCard(
-                    title = "1 vs 1 vs 1 vs 1",
-                    description = "Todos contra todos\n4 jugadores",
-                    is16x16 = true,
-                    onClick = { onSelectMode("1vs1vs1vs1") }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -89,26 +108,37 @@ private fun GameModeCard(
     is16x16: Boolean,
     onClick: () -> Unit
 ) {
-    Surface(
+    // Estilo exacto del .game-modal__option
+    val gradientBrush = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFFFFFFFF).copy(alpha = 0.68f),
+            Color(0xFFEBD8B7).copy(alpha = 0.82f)
+        ),
+        start = Offset(0f, 0f),
+        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+    )
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White.copy(alpha = 0.05f),
-        border = BorderStroke(1.dp, BorderColor)
+            .clip(RoundedCornerShape(12.dp))
+            .background(gradientBrush)
+            .border(2.dp, Color(0xFF2F2418), RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(14.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Contenedor del Tablero (85dp x 85dp fijo)
+            // Contenedor del Tablero (estilo game-modal__option-icon web)
             Box(
                 modifier = Modifier
-                    .size(85.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(76.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(Color(0xFF204D2B))
-                    .border(2.dp, Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .border(3.dp, Color(0xFF070F0A).copy(alpha = 0.44f), RoundedCornerShape(10.dp))
+                    .padding(3.dp)
             ) {
                 BoardGridPreview(is16x16)
             }
@@ -116,14 +146,15 @@ private fun GameModeCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextColor
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF1F1711)
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = description,
-                    fontSize = 12.sp,
-                    color = TextMutedColor,
+                    fontSize = 13.sp,
+                    color = Color(0xFF4F443A),
                     lineHeight = 16.sp
                 )
             }
@@ -134,7 +165,7 @@ private fun GameModeCard(
 @Composable
 private fun BoardGridPreview(is16x16: Boolean) {
     val gridSize = if (is16x16) 16 else 8
-    val cellSize = 85.dp / gridSize
+    val cellSize = 70.dp / gridSize
 
     Box(modifier = Modifier.fillMaxSize()) {
         // 1. Dibujar Cuadrícula de fondo
@@ -146,56 +177,54 @@ private fun BoardGridPreview(is16x16: Boolean) {
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .border(0.2.dp, Color.White.copy(alpha = 0.1f))
+                                .border(0.2.dp, Color.White.copy(alpha = 0.15f))
                         )
                     }
                 }
             }
         }
 
-        // 2. Dibujar Piezas y Especiales usando offset (posición exacta)
+        // 2. Dibujar Piezas y Especiales usando offset
         if (!is16x16) {
-            // MODO 1v1 (Posiciones del frontend web)
             SpecialCell(2, 7, cellSize, 8.sp)
             SpecialCell(6, 2, cellSize, 8.sp)
             SpecialCell(2, 2, cellSize, 8.sp)
             SpecialCell(7, 6, cellSize, 8.sp)
 
-            ReversiPiece(4, 4, Color.White, cellSize)
-            ReversiPiece(4, 5, Color.Black, cellSize)
-            ReversiPiece(5, 4, Color.Black, cellSize)
-            ReversiPiece(5, 5, Color.White, cellSize)
+            ReversiPiece(4, 4, "white", cellSize)
+            ReversiPiece(4, 5, "black", cellSize)
+            ReversiPiece(5, 4, "black", cellSize)
+            ReversiPiece(5, 5, "white", cellSize)
         } else {
-            // MODO 1v1v1v1
             SpecialCell(2, 10, cellSize, 5.sp)
             SpecialCell(10, 2, cellSize, 5.sp)
             SpecialCell(15, 12, cellSize, 5.sp)
             SpecialCell(3, 15, cellSize, 5.sp)
             SpecialCell(8, 7, cellSize, 5.sp)
 
-            // Cluster superior izquierda
-            ReversiPiece(4, 4, Color.Black, cellSize)
-            ReversiPiece(4, 5, Color.White, cellSize)
-            ReversiPiece(5, 4, MutedRed, cellSize)
-            ReversiPiece(5, 5, MutedBlue, cellSize)
+            // Superior izquierda
+            ReversiPiece(4, 4, "black", cellSize)
+            ReversiPiece(4, 5, "white", cellSize)
+            ReversiPiece(5, 4, "red", cellSize)
+            ReversiPiece(5, 5, "blue", cellSize)
 
-            // Cluster superior derecha
-            ReversiPiece(4, 12, Color.White, cellSize)
-            ReversiPiece(4, 13, Color.Black, cellSize)
-            ReversiPiece(5, 12, MutedBlue, cellSize)
-            ReversiPiece(5, 13, MutedRed, cellSize)
+            // Superior derecha
+            ReversiPiece(4, 12, "white", cellSize)
+            ReversiPiece(4, 13, "black", cellSize)
+            ReversiPiece(5, 12, "blue", cellSize)
+            ReversiPiece(5, 13, "red", cellSize)
 
-            // Cluster inferior izquierda
-            ReversiPiece(12, 4, MutedRed, cellSize)
-            ReversiPiece(12, 5, MutedBlue, cellSize)
-            ReversiPiece(13, 4, Color.Black, cellSize)
-            ReversiPiece(13, 5, Color.White, cellSize)
+            // Inferior izquierda
+            ReversiPiece(12, 4, "red", cellSize)
+            ReversiPiece(12, 5, "blue", cellSize)
+            ReversiPiece(13, 4, "black", cellSize)
+            ReversiPiece(13, 5, "white", cellSize)
 
-            // Cluster inferior derecha
-            ReversiPiece(12, 12, MutedBlue, cellSize)
-            ReversiPiece(12, 13, MutedRed, cellSize)
-            ReversiPiece(13, 12, Color.White, cellSize)
-            ReversiPiece(13, 13, Color.Black, cellSize)
+            // Inferior derecha
+            ReversiPiece(12, 12, "blue", cellSize)
+            ReversiPiece(12, 13, "red", cellSize)
+            ReversiPiece(13, 12, "white", cellSize)
+            ReversiPiece(13, 13, "black", cellSize)
         }
     }
 }
@@ -215,20 +244,24 @@ private fun SpecialCell(row: Int, col: Int, cellSize: androidx.compose.ui.unit.D
             fontSize = fontSize,
             fontWeight = FontWeight.Black,
             textAlign = TextAlign.Center,
-            // 1. Esto quita el margen invisible por defecto de las fuentes en Android
             style = androidx.compose.ui.text.TextStyle(
-                platformStyle = androidx.compose.ui.text.PlatformTextStyle(
-                    includeFontPadding = false
-                )
+                platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)
             ),
-            // 2. Esto fuerza a que se centre perfectamente sin importar el tamaño de la caja azul
             modifier = Modifier.wrapContentSize(Alignment.Center, unbounded = true)
         )
     }
 }
 
 @Composable
-private fun ReversiPiece(row: Int, col: Int, color: Color, cellSize: androidx.compose.ui.unit.Dp) {
+private fun ReversiPiece(row: Int, col: Int, colorType: String, cellSize: androidx.compose.ui.unit.Dp) {
+    val brush = when(colorType) {
+        "white" -> Brush.radialGradient(listOf(Color(0xFFFFFFFF), Color(0xFFD0D0D0)))
+        "black" -> Brush.radialGradient(listOf(Color(0xFF444444), Color(0xFF000000)))
+        "red"   -> Brush.radialGradient(listOf(Color(0xFFFF5555), Color(0xFF880000)))
+        "blue"  -> Brush.radialGradient(listOf(Color(0xFF55AAFF), Color(0xFF0033AA)))
+        else    -> Brush.radialGradient(listOf(Color.Gray, Color.DarkGray))
+    }
+
     Box(
         modifier = Modifier
             .size(cellSize)
@@ -239,8 +272,8 @@ private fun ReversiPiece(row: Int, col: Int, color: Color, cellSize: androidx.co
             modifier = Modifier
                 .fillMaxSize(0.85f)
                 .clip(CircleShape)
-                .background(color)
-                .border(0.2.dp, Color.Black.copy(alpha = 0.2f), CircleShape)
+                .background(brush)
+                .border(0.5.dp, Color.Black.copy(alpha = 0.3f), CircleShape)
         )
     }
 }

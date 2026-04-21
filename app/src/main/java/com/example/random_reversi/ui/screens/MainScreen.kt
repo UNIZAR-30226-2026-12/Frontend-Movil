@@ -187,7 +187,13 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
     GameModeModal(
         isOpen  = showGameModeModal,
         onClose = { showGameModeModal = false },
-        onSelectMode = { showGameModeModal = false }
+        onSelectMode = { mode ->
+            showGameModeModal = false
+            when (mode) {
+                "1vs1vs1vs1" -> onNavigate("game-1vs1vs1vs1/-1/menu")
+                else         -> onNavigate("game-1vs1/-1/menu")
+            }
+        }
     )
 }
 

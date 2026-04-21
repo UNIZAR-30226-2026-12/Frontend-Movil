@@ -1,64 +1,26 @@
 package com.example.random_reversi.ui.screens
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.StartOffset
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.*
 import coil.compose.AsyncImage
+import com.example.random_reversi.R
 import com.example.random_reversi.data.GamesRepository
 import com.example.random_reversi.data.UserProfileStore
 import com.example.random_reversi.data.UserResult
@@ -66,37 +28,11 @@ import com.example.random_reversi.data.remote.HistoryEntry
 import com.example.random_reversi.data.remote.GameWebSocket
 import com.example.random_reversi.data.remote.LobbyPlayerInfo
 import com.example.random_reversi.ui.navigation.NavigationMessages
-import com.example.random_reversi.ui.theme.BgColor
-import com.example.random_reversi.ui.theme.PrimaryColor
-import com.example.random_reversi.ui.theme.SurfaceColor
-import com.example.random_reversi.ui.theme.TextColor
-import com.example.random_reversi.ui.theme.TextMutedColor
+import com.example.random_reversi.ui.theme.*
 import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-
-private data class WaitingChip(
-    val emoji: String,
-    val startXFraction: Float,
-    val startYFraction: Float,
-    val durationMs: Int,
-    val delayMs: Int,
-    val isQuestion: Boolean = false
-)
-
-private val waitingChips = listOf(
-    WaitingChip("\u26AB", 0.1f, 0.1f, 3000, 0),
-    WaitingChip("\u26AA", 0.85f, 0.15f, 3200, 200),
-    WaitingChip("\uD83D\uDD34", 0.2f, 0.45f, 2800, 400),
-    WaitingChip("\uD83D\uDD35", 0.8f, 0.5f, 3100, 600),
-    WaitingChip("\uD83D\uDFE2", 0.15f, 0.75f, 2900, 800),
-    WaitingChip("\uD83D\uDFE1", 0.9f, 0.8f, 3300, 1000),
-    WaitingChip("\uD83D\uDFE3", 0.3f, 0.9f, 3000, 1200),
-    WaitingChip("\uD83D\uDFE0", 0.75f, 0.3f, 2700, 1400),
-    WaitingChip("\u2753", 0.5f, 0.2f, 3100, 0, true),
-    WaitingChip("\u2753", 0.6f, 0.7f, 2900, 500, true),
-)
 
 private fun buildHistoryPreview(history: List<HistoryEntry>, gameMode: String): List<String> {
     val acceptedModes = if (gameMode == "1vs1") {
@@ -133,48 +69,21 @@ private fun buildHistoryPreview(history: List<HistoryEntry>, gameMode: String): 
     return recent
 }
 
-private fun historySymbolColor(symbol: String): Color = when (symbol) {
-    "V", "1" -> Color(0xFF4ADE80)
-    "D", "4" -> Color(0xFFF87171)
-    "2" -> Color(0xFF9CA3AF)
-    "3" -> Color(0xFF9CA3AF)
-    "E" -> Color(0xFFE5E7EB)
-    "1º" -> Color(0xFF4ADE80)
-    "4º" -> Color(0xFFF87171)
-    "2º" -> Color(0xFF9CA3AF)
-    "3º" -> Color(0xFF9CA3AF)
-    else -> TextMutedColor.copy(alpha = 0.7f)
-}
-
-@Composable
-private fun AnimatedWaitingChip(chip: WaitingChip) {
-    val infiniteTransition = rememberInfiniteTransition(label = "waiting_chip")
-    val yOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 20f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(chip.durationMs, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-            initialStartOffset = StartOffset(chip.delayMs)
-        ),
-        label = "chip_offset"
-    )
-
-    Text(
-        text = chip.emoji,
-        fontSize = if (chip.isQuestion) 28.sp else 32.sp,
-        modifier = Modifier
-            .offset(x = 280.dp * chip.startXFraction, y = 700.dp * chip.startYFraction + yOffset.dp)
-            .alpha(0.28f)
-    )
-}
-
-@Composable
-private fun WaitingRoomBackground() {
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        waitingChips.forEach { chip ->
-            AnimatedWaitingChip(chip = chip)
+private fun getHistoryTokenImage(symbol: String, index: Int, gameMode: String): Int? {
+    if (gameMode == "1vs1") {
+        if (symbol == "V" || symbol == "1º") {
+            return if (index % 2 == 0) R.drawable.salamovil_ficha_negra_victoria else R.drawable.salamovil_ficha_victoria_blanco
         }
+        if (symbol == "D" || symbol == "4º") {
+            return if (index % 2 == 0) R.drawable.salamovil_ficha_negra_derrota else R.drawable.salamovil_ficha_blanca_derrota
+        }
+        if (symbol == "E" || symbol == "2º" || symbol == "3º") {
+            return R.drawable.salamovil_empate
+        }
+        return null
+    } else {
+        // Fallback for 4 players if needed later
+        return null
     }
 }
 
@@ -247,21 +156,11 @@ fun WaitingRoomScreen(
                 val rr = player.get("rr")?.asInt ?: 1000
                 val avatarUrl = if (player.has("avatar_url") && !player.get("avatar_url").isJsonNull) {
                     player.get("avatar_url").asString
-                } else {
-                    null
-                }
+                } else null
                 val isReady = player.get("is_ready")?.asBoolean ?: false
 
-                LobbyPlayerInfo(
-                    id = id,
-                    username = username,
-                    rr = rr,
-                    avatar_url = avatarUrl,
-                    is_ready = isReady
-                )
-            } catch (_: Exception) {
-                null
-            }
+                LobbyPlayerInfo(id, username, rr, avatarUrl, isReady)
+            } catch (_: Exception) { null }
         }
 
         if (mappedPlayers.isNotEmpty()) {
@@ -270,9 +169,7 @@ fun WaitingRoomScreen(
             lobbyStatus = wsRoomStatus
             mappedPlayers.find { it.username == localPlayerName }?.let { me ->
                 isLocalReady = me.is_ready
-                if (isUpdatingReady) {
-                    isUpdatingReady = false
-                }
+                if (isUpdatingReady) isUpdatingReady = false
             }
             loadMissingHistories(mappedPlayers)
             errorMsg = null
@@ -312,9 +209,7 @@ fun WaitingRoomScreen(
                     val me = nextPlayers.find { it.username == localPlayerName }
                     if (me != null) {
                         isLocalReady = me.is_ready
-                        if (isUpdatingReady) {
-                            isUpdatingReady = false
-                        }
+                        if (isUpdatingReady) isUpdatingReady = false
                     }
 
                     loadMissingHistories(nextPlayers)
@@ -356,12 +251,8 @@ fun WaitingRoomScreen(
                     if (isForbidden && !triedRecoverJoin && returnTo == "friends") {
                         triedRecoverJoin = true
                         when (val joinResult = GamesRepository.joinLobby(gameId)) {
-                            is UserResult.Success -> {
-                                errorMsg = null
-                            }
-                            is UserResult.Error -> {
-                                errorMsg = joinResult.message
-                            }
+                            is UserResult.Success -> { errorMsg = null }
+                            is UserResult.Error -> { errorMsg = joinResult.message }
                         }
                     }
                     if (returnTo == "friends" && !forcedExitTriggered && isRoomGone) {
@@ -373,19 +264,10 @@ fun WaitingRoomScreen(
                         onNavigate(returnTo)
                         return@LaunchedEffect
                     }
-
-                    // En salas públicas: si la API devuelve 403/404 por salida del otro jugador,
-                    // limpiamos el estado visual para volver a "Esperando..." en vez de dejar datos stale.
                     if (returnTo != "friends" && (isForbidden || isRoomGone)) {
                         val localPlayer = players.firstOrNull { it.username == localPlayerName }
                         players = listOf(
-                            localPlayer ?: LobbyPlayerInfo(
-                                id = -1,
-                                username = localPlayerName,
-                                rr = 0,
-                                avatar_url = profile.avatarUrl,
-                                is_ready = isLocalReady
-                            )
+                            localPlayer ?: LobbyPlayerInfo(-1, localPlayerName, 0, profile.avatarUrl, isLocalReady)
                         )
                         lobbyStatus = "waiting"
                         errorMsg = null
@@ -409,168 +291,153 @@ fun WaitingRoomScreen(
         inlineToast = null
     }
 
+    val statusText = when {
+        lobbyStatus == "playing" || allReady -> "INICIANDO PARTIDA..."
+        isFull -> "SALA LLENA"
+        else -> "ESPERANDO OPONENTES..."
+    }
+
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BgColor)
+        modifier = Modifier.fillMaxSize()
     ) {
-        WaitingRoomBackground()
+        // Fondo General
+        Image(
+            painter = painterResource(id = R.drawable.nuevofondomovil),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Sala de Espera",
-                style = TextStyle(
-                    brush = Brush.verticalGradient(listOf(Color.White, Color(0xFFA78BFA))),
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Center
-                )
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Surface(
-                color = PrimaryColor.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, PrimaryColor.copy(alpha = 0.3f))
-            ) {
-                Text(
-                    text = gameMode,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    color = Color(0xFFA78BFA),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(40.dp))
-
-            FlippingChip3D()
-
             Spacer(modifier = Modifier.height(20.dp))
 
-            val infiniteTransition = rememberInfiniteTransition(label = "waiting_status")
-            val alpha by infiniteTransition.animateFloat(
-                initialValue = 0.4f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
-                label = "status_alpha"
+            // Titulo: SALA DE ESPERA
+            Image(
+                painter = painterResource(id = R.drawable.salamovil_titulosalaespera2),
+                contentDescription = "Sala de Espera",
+                modifier = Modifier.width(250.dp),
+                contentScale = ContentScale.FillWidth
             )
 
-            Text(
-                text = when {
-                    lobbyStatus == "playing" -> "INICIANDO PARTIDA..."
-                    allReady -> "INICIANDO PARTIDA..."
-                    isFull -> "SALA LLENA"
-                    else -> "ESPERANDO JUGADORES..."
-                },
-                color = TextMutedColor,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.sp,
-                modifier = Modifier.alpha(alpha)
-            )
-
-            errorMsg?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(it, color = Color(0xFFF87171), fontSize = 12.sp)
-            }
-
-            inlineToast?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(it, color = Color(0xFFFBBF24), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-
-            Spacer(modifier = Modifier.height(34.dp))
-
-            if (gameMode == "1vs1") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    players.forEachIndexed { index, player ->
-                        PlayerSlot(
-                            player = player,
-                            isLocal = player.username == localPlayerName,
-                            localAvatarUrl = profile.avatarUrl,
-                            historyPreview = historyByPlayer[player.id] ?: listOf("-", "-", "-", "-", "-")
-                        )
-                        if (index < players.lastIndex) Spacer(modifier = Modifier.width(20.dp))
-                    }
-                    repeat(maxPlayers - players.size) {
-                        if (players.isNotEmpty()) Spacer(modifier = Modifier.width(20.dp))
-                        EmptySlot()
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        if (players.size > 0) PlayerSlot(players[0], players[0].username == localPlayerName, profile.avatarUrl, historyByPlayer[players[0].id] ?: listOf("-", "-", "-", "-", "-")) else EmptySlot()
-                        if (players.size > 1) PlayerSlot(players[1], players[1].username == localPlayerName, profile.avatarUrl, historyByPlayer[players[1].id] ?: listOf("-", "-", "-", "-", "-")) else EmptySlot()
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        if (players.size > 2) PlayerSlot(players[2], players[2].username == localPlayerName, profile.avatarUrl, historyByPlayer[players[2].id] ?: listOf("-", "-", "-", "-", "-")) else EmptySlot()
-                        if (players.size > 3) PlayerSlot(players[3], players[3].username == localPlayerName, profile.avatarUrl, historyByPlayer[players[3].id] ?: listOf("-", "-", "-", "-", "-")) else EmptySlot()
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(44.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            // Estado DInamico (Ribete)
+            Box(
+                modifier = Modifier.offset(y = (-30).dp).width(230.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            if (gameId > 0) GamesRepository.leaveLobby(gameId)
-                            onNavigate(returnTo)
-                        }
-                    },
+                Image(
+                    painter = painterResource(id = R.drawable.salamovil_tituloesperandooponentes),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentScale = ContentScale.FillWidth
+                )
+            }
+
+            // Tablero Principal
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                BoxWithConstraints(
+                    modifier = Modifier.offset(y = (-39).dp).fillMaxHeight().aspectRatio(408f/612f)
+                ) {
+                    val h = maxHeight
+                    val w = maxWidth
+                    Image(
+                        painter = painterResource(id = R.drawable.salamovil_cartelsalaespera1v1),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    if (errorMsg != null || inlineToast != null) {
+                        Text(
+                            text = errorMsg ?: inlineToast ?: "",
+                            color = Color.Red,
+                            fontSize = 12.sp,
+                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                        )
+                    }
+
+                    // Player 1 Card (Top Slot)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(h * 0.28f)
+                            .offset(y = h * 0.03f) 
+                    ) {
+                        PlayerCardOverlay(players.getOrNull(0), 0, gameMode, profile.avatarUrl, historyByPlayer)
+                    }
+
+                    // Player 2 Card (Bottom Slot)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(h * 0.28f)
+                            .offset(y = h * 0.315f)
+                    ) {
+                        PlayerCardOverlay(players.getOrNull(1), 1, gameMode, profile.avatarUrl, historyByPlayer)
+                    }
+                    // Cinta inferior "Prepara tu estrategia" eliminada
+
+                }
+            }
+
+            // Acciones Inferiores (Abandonar y Listo)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = (-40).dp)
+                    .padding(horizontal = 24.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.salamovil_abandonar),
+                    contentDescription = "Abandonar Sala",
                     modifier = Modifier
                         .weight(1f)
-                        .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF87171).copy(alpha = 0.1f)),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.2f))
-                ) {
-                    Text("Abandonar", color = Color(0xFFF87171), fontWeight = FontWeight.Bold)
-                }
-
-                Button(
-                    onClick = {
-                        if (gameId > 0) {
+                        .height(105.dp)
+                        .clickable {
                             scope.launch {
-                                if (isUpdatingReady) return@launch
+                                if (gameId > 0) GamesRepository.leaveLobby(gameId)
+                                onNavigate(returnTo)
+                            }
+                        },
+                    contentScale = ContentScale.Fit
+                )
+                
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Image(
+                    painter = painterResource(id = R.drawable.salamovil_listo),
+                    contentDescription = "Estoy Listo",
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(95.dp)
+                        .alpha(if (isUpdatingReady) 0.5f else 1f)
+                        .graphicsLayer {
+                            val scale = if (isLocalReady) 0.93f else 1f
+                            scaleX = scale
+                            scaleY = scale
+                        }
+                        .clickable(enabled = isFull && gameId > 0 && !isUpdatingReady) {
+                            scope.launch {
                                 val nextReady = !isLocalReady
                                 isUpdatingReady = true
                                 val wsIsReady = wsConnectionState == "connected" || wsConnectionState == "waiting"
 
                                 if (wsIsReady) {
-                                    // Igual que en web: si hay WS, enviamos sólo por WS.
                                     ws?.sendReady(nextReady)
                                     launch {
                                         delay(2200)
-                                        if (isUpdatingReady) {
-                                            isUpdatingReady = false
-                                        }
+                                        if (isUpdatingReady) { isUpdatingReady = false }
                                     }
                                     return@launch
                                 }
-
-                                // Fallback cuando no hay WS: REST y refresh del estado.
                                 when (val result = GamesRepository.setReady(gameId, nextReady)) {
                                     is UserResult.Success -> {
                                         when (val refreshed = GamesRepository.getLobbyState(gameId)) {
@@ -580,9 +447,7 @@ fun WaitingRoomScreen(
                                                 val me = refreshed.data.players.find { it.username == localPlayerName }
                                                 if (me != null) isLocalReady = me.is_ready
                                             }
-                                            is UserResult.Error -> {
-                                                inlineToast = refreshed.message
-                                            }
+                                            is UserResult.Error -> { inlineToast = refreshed.message }
                                         }
                                         isUpdatingReady = false
                                     }
@@ -592,174 +457,125 @@ fun WaitingRoomScreen(
                                     }
                                 }
                             }
-                        }
-                    },
-                    enabled = isFull && gameId > 0 && !isUpdatingReady,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isLocalReady) Color(0xFF4ADE80) else PrimaryColor,
-                        disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        when {
-                            isUpdatingReady -> "Actualizando..."
-                            isLocalReady -> "Listo"
-                            else -> "Estoy Listo"
                         },
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                    contentScale = ContentScale.Fit
+                )
             }
         }
     }
 }
 
 @Composable
-private fun FlippingChip3D() {
-    val infiniteTransition = rememberInfiniteTransition(label = "chip3d")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation"
-    )
-
-    Box(
-        modifier = Modifier
-            .size(100.dp)
-            .graphicsLayer {
-                rotationY = rotation
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = if (rotation % 360 in 90f..270f) 1f else 0f }
-                .background(Color.White, CircleShape)
-                .border(4.dp, Color.Gray.copy(alpha = 0.2f), CircleShape)
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = if (rotation % 360 in 90f..270f) 0f else 1f }
-                .background(Color.Black, CircleShape)
-                .border(4.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-        )
-    }
-}
-
-@Composable
-private fun PlayerSlot(
-    player: LobbyPlayerInfo,
-    isLocal: Boolean,
+private fun PlayerCardOverlay(
+    player: LobbyPlayerInfo?,
+    index: Int,
+    gameMode: String,
     localAvatarUrl: String?,
-    historyPreview: List<String>
+    historyByPlayer: Map<Int, List<String>>
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(90.dp)
-    ) {
-        Box {
-            Surface(
+    val startPadding = if (index == 0) 78.dp else 32.dp
+
+    if (player == null) {
+        // Slot Vacío
+        Row(
+            modifier = Modifier.fillMaxSize().padding(start = startPadding, end = 32.dp, top = 26.dp, bottom = 26.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
                 modifier = Modifier
                     .size(70.dp)
-                    .then(
-                        if (player.is_ready) Modifier.border(3.dp, Color(0xFF4ADE80), CircleShape)
-                        else Modifier.border(2.dp, PrimaryColor.copy(alpha = 0.5f), CircleShape)
-                    ),
-                shape = CircleShape,
-                color = SurfaceColor
+                    .background(Color(0xFFE5E5E5), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    val presetRes = if (isLocal) AvatarPresets.drawableForId(localAvatarUrl) else AvatarPresets.drawableForId(player.avatar_url)
-                    when {
-                        presetRes != null -> {
-                            Image(
-                                painter = painterResource(id = presetRes),
-                                contentDescription = "Avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
+                Image(
+                    painter = painterResource(id = R.drawable.interrogante),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(0.6f),
+                    contentScale = ContentScale.Fit,
+                    alpha = 0.5f // Hacer difuminado como en web
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(verticalArrangement = Arrangement.Center) {
+                Text("Esperando...", color = Color(0xFF4B5563), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("ELO ACTUAL:", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Text("--- RR", color = Color.DarkGray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    } else {
+        // Slot Lleno
+        val historyPreview = historyByPlayer[player.id] ?: listOf("-", "-", "-", "-", "-")
+        Box(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(start = startPadding, end = 32.dp, top = 26.dp, bottom = 26.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.size(70.dp)) {
+                    val presetRes = AvatarPresets.drawableForId(player.avatar_url)
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (presetRes != null) {
+                            Image(painter = painterResource(id = presetRes), contentDescription = null, contentScale = ContentScale.Crop)
+                        } else if (!player.avatar_url.isNullOrBlank()) {
+                            AsyncImage(model = player.avatar_url, contentDescription = null, contentScale = ContentScale.Crop)
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize().background(Color.LightGray), contentAlignment = Alignment.Center) {
+                                Text(player.username.first().toString().uppercase(), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
-                        isLocal && !localAvatarUrl.isNullOrBlank() -> {
-                            AsyncImage(
-                                model = localAvatarUrl,
-                                contentDescription = "Avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
+                    }
+                    if (player.is_ready) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(24.dp)
+                                .background(Color(0xFF4ADE80), CircleShape)
+                                .border(2.dp, Color.White, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         }
-                        !player.avatar_url.isNullOrBlank() -> {
-                            AsyncImage(
-                                model = player.avatar_url,
-                                contentDescription = "Avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                    }
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(verticalArrangement = Arrangement.Center) {
+                    Text(player.username, color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("ELO ACTUAL:", color = Color.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${player.rr} RR", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            
+            // Fichas de la racha a la derecha de ELO. En el mockup hay que intentar colocarlo bajo ELO o en el tape.
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = (-38).dp, y = (-2).dp), // Subirlo un poco porque el tape está en esa posición
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                historyPreview.take(5).forEach { symbol ->
+                    val imgRes = getHistoryTokenImage(symbol, index, gameMode)
+                    if (imgRes != null) {
+                        Image(
+                            painter = painterResource(id = imgRes),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        // Circulo vacio con borde punteado de 18dp
+                        Canvas(modifier = Modifier.size(18.dp)) {
+                            drawCircle(
+                                color = Color.DarkGray,
+                                style = Stroke(width = 3f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))),
+                                radius = 8.dp.toPx()
                             )
-                        }
-                        else -> {
-                            Text(player.username.first().toString(), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
-
-            if (player.is_ready) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .size(24.dp)
-                        .background(Color(0xFF4ADE80), CircleShape)
-                        .border(2.dp, BgColor, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                }
-            }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = player.username,
-            color = if (player.is_ready) Color.White else TextMutedColor,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text("${player.rr} RR", color = Color(0xFFFBBF24), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            historyPreview.take(5).forEach { symbol ->
-                Text(symbol, color = historySymbolColor(symbol), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptySlot() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(90.dp)) {
-        Box(
-            modifier = Modifier
-                .size(70.dp)
-                .background(Color.White.copy(alpha = 0.05f), CircleShape)
-                .border(2.dp, Color.White.copy(alpha = 0.1f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("?", color = Color.White.copy(alpha = 0.2f), fontSize = 24.sp)
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Esperando...", color = Color.White.copy(alpha = 0.3f), fontSize = 12.sp)
     }
 }
