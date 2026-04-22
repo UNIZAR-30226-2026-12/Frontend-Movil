@@ -367,7 +367,7 @@ fun WaitingRoomScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(h * 0.28f)
-                            .offset(y = h * 0.03f) 
+                            .offset(y = h * 0.034f) 
                     ) {
                         PlayerCardOverlay(players.getOrNull(0), 0, gameMode, profile.avatarUrl, historyByPlayer)
                     }
@@ -377,7 +377,7 @@ fun WaitingRoomScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(h * 0.28f)
-                            .offset(y = h * 0.315f)
+                            .offset(y = h * 0.305f)
                     ) {
                         PlayerCardOverlay(players.getOrNull(1), 1, gameMode, profile.avatarUrl, historyByPlayer)
                     }
@@ -428,16 +428,14 @@ fun WaitingRoomScreen(
                             scope.launch {
                                 val nextReady = !isLocalReady
                                 isUpdatingReady = true
-                                val wsIsReady = wsConnectionState == "connected" || wsConnectionState == "waiting"
 
+                                // Notificar por WS si está conectado (fire-and-forget)
+                                val wsIsReady = wsConnectionState == "connected" || wsConnectionState == "waiting"
                                 if (wsIsReady) {
                                     ws?.sendReady(nextReady)
-                                    launch {
-                                        delay(2200)
-                                        if (isUpdatingReady) { isUpdatingReady = false }
-                                    }
-                                    return@launch
                                 }
+
+                                // SIEMPRE confirmar el estado via HTTP para garantizar la actualización de UI
                                 when (val result = GamesRepository.setReady(gameId, nextReady)) {
                                     is UserResult.Success -> {
                                         when (val refreshed = GamesRepository.getLobbyState(gameId)) {
@@ -473,7 +471,8 @@ private fun PlayerCardOverlay(
     localAvatarUrl: String?,
     historyByPlayer: Map<Int, List<String>>
 ) {
-    val startPadding = if (index == 0) 78.dp else 32.dp
+    val startPadding = if (index == 0) 75.2.dp else 77.4.dp
+    val avatarSize = 78.dp
 
     if (player == null) {
         // Slot Vacío
@@ -483,7 +482,7 @@ private fun PlayerCardOverlay(
         ) {
             Box(
                 modifier = Modifier
-                    .size(70.dp)
+                    .size(avatarSize)
                     .background(Color(0xFFE5E5E5), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
@@ -496,11 +495,13 @@ private fun PlayerCardOverlay(
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Column(verticalArrangement = Arrangement.Center) {
+            Column(
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.offset(y = (-6).dp)
+            ) {
                 Text("Esperando...", color = Color(0xFF4B5563), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("ELO ACTUAL:", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                Text("--- RR", color = Color.DarkGray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("ELO ACTUAL:", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
+                Text("--- RR", color = Color.DarkGray, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(y = (-16).dp))
             }
         }
     } else {
@@ -511,10 +512,17 @@ private fun PlayerCardOverlay(
                 modifier = Modifier.fillMaxSize().padding(start = startPadding, end = 32.dp, top = 26.dp, bottom = 26.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(modifier = Modifier.size(70.dp)) {
+                Box(modifier = Modifier.size(avatarSize)) {
                     val presetRes = AvatarPresets.drawableForId(player.avatar_url)
                     Surface(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (player.is_ready)
+                                    Modifier.border(3.dp, Color(0xFF4ADE80), RoundedCornerShape(12.dp))
+                                else
+                                    Modifier
+                            ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (presetRes != null) {
@@ -541,32 +549,41 @@ private fun PlayerCardOverlay(
                     }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
-                Column(verticalArrangement = Arrangement.Center) {
+                Column(
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.offset(y = (-6).dp)
+                ) {
                     Text(player.username, color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("ELO ACTUAL:", color = Color.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                    Text("${player.rr} RR", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("ELO ACTUAL:", color = Color.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
+                    Text("${player.rr} RR", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(y = (-16).dp))
                 }
             }
             
-            // Fichas de la racha a la derecha de ELO. En el mockup hay que intentar colocarlo bajo ELO o en el tape.
-            Row(
+            // Fichas de la racha: cada círculo tiene su propia distancia absoluta desde el primero.
+            // streakStartX → posición fija del círculo 0 (el más a la izquierda)
+            // streakOffsets[i] → distancia de cada círculo respecto al primero (independientes entre sí)
+            val streakStartX = if (index == 0) 179.dp else 178.2.dp
+            val streakOffsets = listOf(0.dp, 21.5.dp, 43.dp, 65.dp, 87.dp) // ← ajusta cada valor por separado
+            val streakSize   = 18.dp
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = (-38).dp, y = (-2).dp), // Subirlo un poco porque el tape está en esa posición
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = streakStartX, y = if (index == 0) (-18).dp else (-26).dp)
+                    .width(streakOffsets.last() + streakSize)
+                    .height(streakSize)
             ) {
-                historyPreview.take(5).forEach { symbol ->
+                historyPreview.take(5).forEachIndexed { i, symbol ->
+                    val xOff = streakOffsets.getOrElse(i) { streakOffsets.last() }
                     val imgRes = getHistoryTokenImage(symbol, index, gameMode)
                     if (imgRes != null) {
                         Image(
                             painter = painterResource(id = imgRes),
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(streakSize).offset(x = xOff)
                         )
                     } else {
-                        // Circulo vacio con borde punteado de 18dp
-                        Canvas(modifier = Modifier.size(18.dp)) {
+                        // Círculo vacío con borde punteado
+                        Canvas(modifier = Modifier.size(streakSize).offset(x = xOff)) {
                             drawCircle(
                                 color = Color.DarkGray,
                                 style = Stroke(width = 3f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))),
