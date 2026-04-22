@@ -86,53 +86,7 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(28.dp)) // Ajuste para el status bar
-
-            // 1. Cabecera: Título y Botones
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Título a la izquierda
-                Image(
-                    painter = painterResource(id = R.drawable.titulojugaronline),
-                    contentDescription = "Jugar Online",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(80.dp)
-                        .padding(end = 16.dp)
-                )
-
-                // Botones a la derecha
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    horizontalAlignment = Alignment.End
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.actualizar),
-                        contentDescription = "Actualizar",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .height(35.dp)
-                            .clickable(enabled = !isRefreshing) { loadData() }
-                            .alpha(if (isRefreshing) 0.5f else 1f)
-                    )
-                    Image(
-                        painter = painterResource(id = R.drawable.crearpartida),
-                        contentDescription = "Crear Partida",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .height(35.dp)
-                            .clickable(enabled = !isCreating) { showCreateModal = true }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(120.dp)) // Baja aún más la libreta
 
             // 2. Módulo Estatus / Historial (Libreta Superior)
             Box(
@@ -141,7 +95,7 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                     .padding(horizontal = 16.dp)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.tuestatusmovil),
+                    painter = painterResource(id = R.drawable.tuestatusmovil2),
                     contentDescription = null,
                     contentScale = ContentScale.FillWidth,
                     modifier = Modifier.fillMaxWidth()
@@ -157,7 +111,8 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                     Box(
                         modifier = Modifier
                             .weight(0.45f)
-                            .fillMaxHeight(),
+                            .fillMaxHeight()
+                            .padding(start = 36.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -165,36 +120,36 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                                 painter = painterResource(id = R.drawable.eloactual),
                                 contentDescription = null,
                                 contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxWidth(0.9f)
+                                modifier = Modifier.fillMaxWidth(1.05f)
                             )
                             Text(
                                 text = "$userElo RR",
                                 color = Color.Black,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(top = 10.dp) // Reducimos el padding de 18 a 10 para subirlo
+                                modifier = Modifier.padding(top = 10.dp)
                             )
                         }
                     }
 
-                    // Bloque Derecho: Historial (máximo 4 partidas para encajar)
+                    // Bloque Derecho: Historial (ajustado a la nueva imagen)
                     Column(
                         modifier = Modifier
                             .weight(0.55f)
                             .fillMaxHeight()
-                            .padding(start = 12.dp, top = 4.dp),
+                            .padding(start = 30.dp, top = 30.dp, end = 18.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        val historyTop4 = history.take(4)
-                        if (historyTop4.isEmpty()) {
+                        val historyTop = history.take(3)
+                        if (historyTop.isEmpty()) {
                             Text(
                                 "No hay partidas recientes",
-                                fontSize = 12.sp,
+                                fontSize = 10.sp,
                                 color = TextMutedColor,
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                             )
                         } else {
-                            historyTop4.forEach { entry ->
+                            historyTop.forEach { entry ->
                                 val tone = historyTone(entry)
                                 val (icon, color) = when (tone) {
                                     "win" -> "✅" to Color(0xFF15803d)
@@ -206,15 +161,31 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                                     else -> "1v1"
                                 }
 
-                                Row(
+                                Column(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalArrangement = Arrangement.spacedBy(0.dp)
                                 ) {
-                                    Text("${entry.result.uppercase().take(7)} $icon", color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                    Text(entry.date ?: "-", color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
-                                    Text(modeLabel, color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                    Text(entry.rankChange, color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val resultLabel = when (tone) {
+                                            "win" -> "VICTORIA"
+                                            "loss" -> "DERROTA"
+                                            else -> "EMPATE"
+                                        }
+                                        Text("$resultLabel $icon", color = color, fontSize = 9.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold)
+                                        Text(entry.date ?: "-", color = Color.Black, fontSize = 9.sp, lineHeight = 9.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Modo: $modeLabel", color = Color.DarkGray, fontSize = 8.sp, lineHeight = 8.sp, fontWeight = FontWeight.Bold)
+                                        Text(entry.rankChange, color = color, fontSize = 9.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -222,13 +193,14 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(0.dp))
 
             // 3. Corcho Central (Partidas Públicas)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
+                    .offset(y = (-40).dp) // Compensa el spacer de arriba para que el corcho no se mueva
                     .padding(horizontal = 12.dp)
             ) {
                 // Fondo: Corcho
@@ -245,15 +217,27 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                     }
                 } else if (publicGames.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "No hay partidas públicas clavadas.",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
                                 .background(Color.Black.copy(0.4f), RoundedCornerShape(8.dp))
-                                .padding(16.dp)
-                        )
+                                .padding(horizontal = 20.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                "No hay partidas",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                "públicas clavadas.",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 } else {
                     LazyVerticalGrid(
@@ -289,24 +273,67 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(0.dp))
 
-            // 4. Botón de Volver al Menú
-            Box(
+            // 4. Botones Inferiores (Volver al Menú y Crear Partida)
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.botonvolvermenu),
                     contentDescription = "Volver al menú",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
+                        .weight(1f)
                         .height(100.dp)
                         .clickable { onNavigate("menu") }
                 )
+                
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Image(
+                    painter = painterResource(id = R.drawable.crearpartida),
+                    contentDescription = "Crear Partida",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(100.dp)
+                        .clickable(enabled = !isCreating) { showCreateModal = true }
+                )
             }
+        }
+
+        // ── Cabecera flotante (posición independiente del resto del layout) ──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopStart)
+                .padding(start = 20.dp, top = 76.dp, end = 20.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.titulojugaronline),
+                contentDescription = "Jugar Online",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .height(38.dp)
+                    .wrapContentWidth(Alignment.Start)
+            )
+            Image(
+                painter = painterResource(id = R.drawable.actualizar),
+                contentDescription = "Actualizar",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .height(60.dp)
+                    .clickable(enabled = !isRefreshing) { loadData() }
+                    .alpha(if (isRefreshing) 0.5f else 1f)
+            )
         }
 
         // Popups
@@ -353,13 +380,14 @@ fun OnlineGameScreen(onNavigate: (String) -> Unit) {
 @Composable
 private fun GamePostIt(game: PublicLobby, modifier: Modifier = Modifier, onJoin: () -> Unit) {
     val creator = game.creator ?: "Desconocido"
-    val mode = when (game.mode?.lowercase()) {
-        "1vs1vs1vs1", "1v1v1v1" -> "4P"
+    val players = game.players ?: 1
+    val maxPlayers = game.max_players ?: 2
+    val mode = when {
+        game.mode?.lowercase()?.trim() in listOf("1vs1vs1vs1", "1v1v1v1", "4p", "4 players", "4") -> "4P"
+        maxPlayers == 4 -> "4P"
         else -> "1VS1"
     }
     val rr = game.creator_elo ?: 0
-    val players = game.players ?: 1
-    val maxPlayers = game.max_players ?: 2
     val status = game.status?.lowercase() ?: "waiting"
     val isFull = players >= maxPlayers
     val isJoinEnabled = !isFull && status == "waiting"
@@ -372,114 +400,104 @@ private fun GamePostIt(game: PublicLobby, modifier: Modifier = Modifier, onJoin:
     ) {
         // Fondo Post It
         Image(
-            painter = painterResource(id = R.drawable.publicacionpartida),
+            painter = painterResource(id = R.drawable.publicacionpartida3),
             contentDescription = null,
             contentScale = ContentScale.FillWidth,
             modifier = Modifier.fillMaxWidth()
         )
         
-        // Contenidos (Posición Relativa sobre el Post-It)
-        Column(
+        // Contenidos (Posiciones independientes sobre el Post-It)
+        Box(
             modifier = Modifier
                 .matchParentSize()
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(16.dp)
         ) {
-            
-            // Fila superior: Host e Info
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                // Host Column
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(0.3f)) {
-                    Text("HOST", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.Black)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, Color.Black, CircleShape)
-                    ) {
-                        val presetAvatar = AvatarPresets.drawableForId(game.avatar_url)
-                        when {
-                            presetAvatar != null -> {
-                                Image(
-                                    painter = painterResource(id = presetAvatar),
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            !game.avatar_url.isNullOrBlank() -> {
-                                AsyncImage(
-                                    model = game.avatar_url,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            else -> {
-                                Box(modifier = Modifier.fillMaxSize().background(PrimaryColor), contentAlignment = Alignment.Center) {
-                                    Text(creator.firstOrNull()?.uppercase() ?: "?", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
+            // 1. Host (Avatar + "HOST")
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = 4.dp, y = (-4).dp),
+                verticalArrangement = Arrangement.spacedBy((-4).dp)
+            ) {
+                Text("HOST", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.Black)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, Color.Black, CircleShape)
+                ) {
+                    val presetAvatar = AvatarPresets.drawableForId(game.avatar_url)
+                    when {
+                        presetAvatar != null -> {
+                            Image(
+                                painter = painterResource(id = presetAvatar),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        !game.avatar_url.isNullOrBlank() -> {
+                            AsyncImage(
+                                model = game.avatar_url,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        else -> {
+                            Box(modifier = Modifier.fillMaxSize().background(PrimaryColor), contentAlignment = Alignment.Center) {
+                                Text(creator.firstOrNull()?.uppercase() ?: "?", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
-                
-                // Info Box (Nombre y RR)
-                Box(
-                    modifier = Modifier
-                        .weight(0.7f)
-                        .padding(start = 8.dp)
-                        .border(2.dp, Color.Black, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                        .background(Color.LightGray.copy(0.3f))
-                        .padding(4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(creator, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("$rr RR", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.Black)
-                    }
+            }
+
+            // 2. Info (Nombre y RR) - Tamaño revertido a 12sp/11sp
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-12).dp, y = 1.dp),
+                verticalArrangement = Arrangement.spacedBy((-9).dp)
+            ) {
+                Text(if (creator.length > 6) creator.take(6) + "..." else creator, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("$rr RR", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.Black)
+            }
+
+            // 3. Modo y Jugadores
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-2).dp, y = 1.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(mode, fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.Black)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("👤", fontSize = 11.sp)
+                    Text("$players/$maxPlayers", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.Black)
                 }
             }
-            
-            // Fila Inferior: Modo, Status, Botón
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+
+            // 4. Botón Unirse
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 8.dp, y = 10.dp),
+                contentAlignment = Alignment.CenterEnd
             ) {
-                // Info pequeña: 1v1 y 1/2
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Surface(
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color.Black),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-                    ) {
-                        Text(mode, fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.Black, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("👤", fontSize = 10.sp)
-                        Text("$players/$maxPlayers", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.Black)
-                    }
-                }
-                
-                // Botón Unirse
-                Box(
-                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.botonunirse),
-                        contentDescription = "Unirse",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .height(36.dp)
-                            .clickable(enabled = isJoinEnabled) { onJoin() }
-                            .alpha(if (isJoinEnabled) 1f else 0.5f)
-                    )
-                }
+                Image(
+                    painter = painterResource(id = R.drawable.botonunirse),
+                    contentDescription = "Unirse",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .height(36.dp)
+                        .clickable(enabled = isJoinEnabled) { onJoin() }
+                        .alpha(if (isJoinEnabled) 1f else 0.5f)
+                )
             }
         }
     }
