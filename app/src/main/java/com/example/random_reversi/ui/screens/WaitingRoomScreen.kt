@@ -34,18 +34,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private fun buildHistoryPreview(history: List<HistoryEntry>, gameMode: String): List<String> {
-    val acceptedModes = if (gameMode == "1vs1") {
-        setOf("1vs1", "1v1")
-    } else {
-        setOf("1vs1vs1vs1", "1v1v1v1")
-    }
-
+private fun buildHistoryPreview(history: List<HistoryEntry>): List<String> {
     val recent = history
-        .filter { acceptedModes.contains(it.mode.lowercase()) }
         .take(5)
         .map { item ->
-            if (gameMode == "1vs1") {
+            val is1v1 = item.mode.lowercase().contains("1v1") || item.mode.lowercase().contains("1vs1")
+            if (is1v1) {
                 when (item.result.lowercase()) {
                     "ganada", "win", "victoria" -> "V"
                     "perdida", "loss", "derrota" -> "D"
@@ -70,7 +64,9 @@ private fun buildHistoryPreview(history: List<HistoryEntry>, gameMode: String): 
 }
 
 private fun getHistoryTokenImage(symbol: String, index: Int, gameMode: String): Int? {
-    if (gameMode == "1vs1") {
+    val is1v1 = gameMode.lowercase().contains("1vs1") || gameMode.lowercase().contains("1v1") && !gameMode.lowercase().contains("1vs1vs1vs1")
+    
+    if (is1v1) {
         if (symbol == "V" || symbol == "1º") {
             return if (index % 2 == 0) R.drawable.salamovil_ficha_negra_victoria else R.drawable.salamovil_ficha_victoria_blanco
         }
@@ -82,7 +78,11 @@ private fun getHistoryTokenImage(symbol: String, index: Int, gameMode: String): 
         }
         return null
     } else {
-        // Fallback for 4 players if needed later
+        // Para 4 jugadores, de momento mostramos los mismos o similar si se desea
+        // Por ahora mantenemos la lógica de posiciones
+        if (symbol == "1º") return if (index % 2 == 0) R.drawable.salamovil_ficha_negra_victoria else R.drawable.salamovil_ficha_victoria_blanco
+        if (symbol == "4º") return if (index % 2 == 0) R.drawable.salamovil_ficha_negra_derrota else R.drawable.salamovil_ficha_blanca_derrota
+        if (symbol == "2º" || symbol == "3º") return R.drawable.salamovil_empate
         return null
     }
 }
@@ -95,6 +95,10 @@ fun WaitingRoomScreen(
     opponentName: String? = null,
     onNavigate: (String) -> Unit
 ) {
+    val normalizedGameMode = remember(gameMode) {
+        if (gameMode.lowercase().contains("1vs1vs1vs1") || gameMode.lowercase().contains("1v1v1v1")) "1vs1vs1vs1"
+        else "1vs1"
+    }
     val profile by UserProfileStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     val ws = remember(gameId) { if (gameId > 0) GameWebSocket(gameId) else null }
@@ -133,13 +137,16 @@ fun WaitingRoomScreen(
 
     suspend fun loadMissingHistories(currentPlayers: List<LobbyPlayerInfo>) {
         currentPlayers.forEach { player ->
+            if (player.id <= 0) return@forEach
             if (loadedHistoryPlayers[player.id] == true) return@forEach
             loadedHistoryPlayers[player.id] = true
-            when (val result = GamesRepository.getUserHistory(player.id)) {
+            when (val result = GamesRepository.getUserHistory(player.id, limit = 5)) {
                 is UserResult.Success -> {
-                    historyByPlayer[player.id] = buildHistoryPreview(result.data, gameMode)
+                    historyByPlayer[player.id] = buildHistoryPreview(result.data)
                 }
                 is UserResult.Error -> {
+                    // Si falla, reintentar después? Por ahora marcar como no cargado para el siguiente tick
+                    loadedHistoryPlayers[player.id] = false
                     historyByPlayer[player.id] = listOf("-", "-", "-", "-", "-")
                 }
             }
@@ -369,7 +376,7 @@ fun WaitingRoomScreen(
                             .height(h * 0.28f)
                             .offset(y = h * 0.034f) 
                     ) {
-                        PlayerCardOverlay(players.getOrNull(0), 0, gameMode, profile.avatarUrl, historyByPlayer)
+                        PlayerCardOverlay(players.getOrNull(0), 0, normalizedGameMode, profile.avatarUrl, historyByPlayer)
                     }
 
                     // Player 2 Card (Bottom Slot)
@@ -379,7 +386,7 @@ fun WaitingRoomScreen(
                             .height(h * 0.28f)
                             .offset(y = h * 0.305f)
                     ) {
-                        PlayerCardOverlay(players.getOrNull(1), 1, gameMode, profile.avatarUrl, historyByPlayer)
+                        PlayerCardOverlay(players.getOrNull(1), 1, normalizedGameMode, profile.avatarUrl, historyByPlayer)
                     }
                     // Cinta inferior "Prepara tu estrategia" eliminada
 

@@ -1,4 +1,4 @@
-﻿package com.example.random_reversi.ui.screens
+package com.example.random_reversi.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.random_reversi.R
 import com.example.random_reversi.data.UserRepository
 import com.example.random_reversi.data.UserResult
 import com.example.random_reversi.data.remote.GameWebSocket
@@ -218,173 +220,251 @@ fun GameBoard1v1Screen(
         onDispose { ws?.disconnect() }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(BgColor)) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ── Fondo (mismo que FriendsScreen) ───────────────────────────
         Image(
-            painter = painterResource(id = arenaTheme.backgroundRes),
+            painter = painterResource(id = R.drawable.nuevofondomovil),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            alpha = 0.45f
+            contentScale = ContentScale.Crop
         )
 
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(46.dp))
+            Spacer(modifier = Modifier.height(38.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                InGameChatButton(
-                    unreadCount = unreadChatCount,
-                    onClick = { showChat = true }
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (returnTo == "friends" && !gameOver) {
-                        OutlinedButton(
-                            onClick = { showPauseConfirm = true },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFFE5E7EB),
-                                containerColor = Color(0xFF64748B).copy(alpha = 0.2f)
-                            ),
-                            border = BorderStroke(1.dp, Color(0xFF94A3B8).copy(alpha = 0.45f)),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Text("Pausar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = { showSurrenderConfirm = true },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFFCA5A5),
-                            containerColor = Color(0xFFF87171).copy(alpha = 0.15f)
-                        ),
-                        border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.35f)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text("Abandonar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
+            // ── Cabecera: TURNO ACTUAL + nombre + estado ──────────────
+            val turnStatusText = when {
+                gameOver -> when {
+                    gameState.winner == null -> "¡Empate!"
+                    gameState.winner == effectiveMyPiece -> "¡Has ganado!"
+                    else -> "Has perdido"
                 }
+                waitingForPausedPlayer -> "Partida pausada"
+                localIsPaused -> "Partida pausada"
+                isMyTurn -> "Tu turno"
+                else -> "Turno del rival"
             }
+            val colorLabel = if (effectiveMyPiece == "black") myPieceName else opponentPieceName
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "TURNO ACTUAL",
+                color = Color.Black,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = "$myDisplayName ($colorLabel)",
+                color = Color.Black,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = turnStatusText,
+                color = Color(0xFF1B4B3A),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
 
-            Surface(
-                color = when {
-                    gameOver -> Color.DarkGray
-                    isMyTurn -> PrimaryColor
-                    else -> SurfaceColor
-                },
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
-            ) {
-                Text(
-                    text = when {
-                        gameOver -> when {
-                            gameState.winner == null -> "Empate"
-                            gameState.winner == effectiveMyPiece -> "Has ganado"
-                            else -> "Has perdido"
-                        }
+            Spacer(modifier = Modifier.height(8.dp))
 
-                        waitingForPausedPlayer -> "Partida pausada: Espera a que vuelva $waitingPausedPlayerName"
-                        localIsPaused -> "Partida pausada"
-                        isMyTurn -> "Tu turno"
-                        else -> "Turno del rival"
-                    },
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold
+            // ── Botones Pausar / Abandonar ────────────────────────────
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (returnTo == "friends" && !gameOver) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ingame_carteljugador),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .height(36.dp)
+                            .clickable { showPauseConfirm = true },
+                        contentScale = ContentScale.FillHeight
+                    )
+                }
+                Image(
+                    painter = painterResource(id = R.drawable.salamovil_abandonar),
+                    contentDescription = "Abandonar",
+                    modifier = Modifier
+                        .height(40.dp)
+                        .clickable { showSurrenderConfirm = true },
+                    contentScale = ContentScale.FillHeight
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
+            // ── Tarjetas de jugadores ─────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                PlayerPanel1v1(
+                PlayerCardIngame(
                     modifier = Modifier.weight(1f),
                     name = myDisplayName,
-                    rr = myDisplayElo,
-                    avatarUrl = myDisplayAvatar,
-                    pieceColor = if (effectiveMyPiece == "black") duelStyle.sideA else duelStyle.sideB,
-                    pieceLabel = myPieceName,
                     score = myScore,
+                    avatarUrl = myDisplayAvatar,
                     isActive = isMyTurn && !gameOver,
-                    paused = localIsPaused,
-                    reconnected = localIsReconnected
+                    paused = localIsPaused
                 )
-
-                PlayerPanel1v1(
+                PlayerCardIngame(
                     modifier = Modifier.weight(1f),
                     name = opponentName,
-                    rr = opponentElo,
-                    avatarUrl = opponentAvatar,
-                    pieceColor = if (effectiveMyPiece == "black") duelStyle.sideB else duelStyle.sideA,
-                    pieceLabel = opponentPieceName,
                     score = opponentScore,
+                    avatarUrl = opponentAvatar,
                     isActive = !isMyTurn && !gameOver,
-                    paused = opponentIsPaused,
-                    reconnected = opponentIsReconnected
+                    paused = opponentIsPaused
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
+            // ── Tablero ───────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFF204D2B))
-                    .border(4.dp, Color.Black.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                    .aspectRatio(0.88f)
             ) {
+                // Fondo decorativo del tablero
                 Image(
-                    painter = painterResource(id = arenaTheme.boardRes),
+                    painter = painterResource(id = R.drawable.ingame_fondotablero),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.FillBounds
                 )
-
-                Column(Modifier.fillMaxSize()) {
-                    for (row in 0 until BOARD_SIZE) {
-                        Row(Modifier.weight(1f)) {
-                            for (col in 0 until BOARD_SIZE) {
-                                val cellValue = gameState.board.getOrNull(row)?.getOrNull(col)
-                                val isValidMove =
-                                    gameState.valid_moves.any { it.size >= 2 && it[0] == row && it[1] == col }
-                                val canPlayHere = isMyTurn && isValidMove && !gameOver
-
-                                GameCell1v1(
-                                    modifier = Modifier.weight(1f),
-                                    cellValue = cellValue,
-                                    isValidMove = canPlayHere,
-                                    style = duelStyle,
-                                    onClick = {
-                                        if (canPlayHere) {
-                                            ws?.sendMove(row, col)
-                                        }
-                                    }
-                                )
+                // Grid del tablero
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.82f)
+                        .aspectRatio(1f)
+                        .align(Alignment.Center)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ingame_tablero1vs1v2),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.FillBounds
+                    )
+                    Column(Modifier.fillMaxSize()) {
+                        for (row in 0 until BOARD_SIZE) {
+                            Row(Modifier.weight(1f)) {
+                                for (col in 0 until BOARD_SIZE) {
+                                    val cellValue = gameState.board.getOrNull(row)?.getOrNull(col)
+                                    val isValidMove = gameState.valid_moves.any { it.size >= 2 && it[0] == row && it[1] == col }
+                                    val canPlayHere = isMyTurn && isValidMove && !gameOver
+                                    GameCell1v1(
+                                        modifier = Modifier.weight(1f),
+                                        cellValue = cellValue,
+                                        isValidMove = canPlayHere,
+                                        style = duelStyle,
+                                        onClick = { if (canPlayHere) ws?.sendMove(row, col) }
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Panel inferior: Chat + Habilidades ────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ingame_paneljuego),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.FillBounds
+                )
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Chat
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable { showChat = true }
+                            .padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "Chat",
+                            color = Color.Black,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFE8D9B0).copy(alpha = 0.7f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ingame_iconochat),
+                                contentDescription = "Chat",
+                                modifier = Modifier.size(44.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                            if (unreadChatCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .size(18.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFEF4444)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("$unreadChatCount", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                    // Divisor
+                    Box(modifier = Modifier.width(1.dp).fillMaxHeight().padding(vertical = 12.dp).background(Color.Black.copy(alpha = 0.2f)))
+                    // Habilidades
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "Habilidades",
+                            color = Color.Black,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFB8945A).copy(alpha = 0.6f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Sin habilidades",
+                                color = Color.Black,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         if (showSurrenderConfirm) {
@@ -662,11 +742,23 @@ private fun PlayerPanel1v1(
         Box(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    AvatarCircle(name = name, avatarUrl = avatarUrl)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                    AvatarBox(
+                        name = name,
+                        avatarUrl = avatarUrl,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .offset(x = 5.5.dp)
+                            .rotate(-3f)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .offset(x = 16.dp)
+                    ) {
+                        val displayName = if (name.length > 10) name.take(10) + "..." else name
                         Text(
-                            text = name,
+                            text = displayName,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
@@ -713,13 +805,16 @@ private fun PlayerPanel1v1(
 }
 
 @Composable
-private fun AvatarCircle(name: String, avatarUrl: String?) {
+private fun AvatarBox(name: String, avatarUrl: String?, modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier.size(36.dp),
-        shape = CircleShape,
+        modifier = modifier,
+        shape = RoundedCornerShape(6.dp),
         color = Color.White.copy(alpha = 0.1f)
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
             val presetRes = AvatarPresets.drawableForId(avatarUrl)
             when {
                 presetRes != null -> {
@@ -727,7 +822,7 @@ private fun AvatarCircle(name: String, avatarUrl: String?) {
                         painter = painterResource(id = presetRes),
                         contentDescription = "Avatar",
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Fit
                     )
                 }
                 !avatarUrl.isNullOrBlank() -> {
@@ -735,7 +830,7 @@ private fun AvatarCircle(name: String, avatarUrl: String?) {
                         model = avatarUrl,
                         contentDescription = "Avatar",
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Fit
                     )
                 }
                 else -> {
@@ -746,6 +841,72 @@ private fun AvatarCircle(name: String, avatarUrl: String?) {
                         fontSize = 14.sp
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerCardIngame(
+    modifier: Modifier = Modifier,
+    name: String,
+    score: Int,
+    avatarUrl: String?,
+    isActive: Boolean,
+    paused: Boolean
+) {
+    Box(modifier = modifier.height(72.dp)) {
+        Image(
+            painter = painterResource(id = R.drawable.ingame_carteljugador),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Avatar con borde activo
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .offset(x = 8.dp)
+                    .rotate(-3f)
+                    .border(
+                        2.dp,
+                        if (isActive) Color(0xFFFBBF24) else if (paused) Color(0xFF94A3B8) else Color.Transparent,
+                        RoundedCornerShape(6.dp)
+                    )
+            ) {
+                AvatarBox(
+                    name = name,
+                    avatarUrl = avatarUrl,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .offset(x = 22.dp)
+            ) {
+                val displayName = if (name.length > 10) name.take(10) + "..." else name
+                Text(
+                    text = displayName,
+                    color = Color.Black,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = if (paused) "Pausado" else "$score pts",
+                    color = if (paused) Color(0xFF64748B) else Color(0xFF5C3D11),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -795,9 +956,9 @@ private fun GameCell1v1(
         if (isValidMove) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize(0.34f)
+                    .fillMaxSize(0.35f)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.8f))
+                    .background(Color.Gray.copy(alpha = 0.45f))
             )
         }
 

@@ -211,9 +211,9 @@ object GamesRepository {
         }
     }
 
-    suspend fun getMyHistory(): UserResult<List<HistoryEntry>> = withContext(Dispatchers.IO) {
+    suspend fun getMyHistory(limit: Int? = null, mode: String? = null): UserResult<List<HistoryEntry>> = withContext(Dispatchers.IO) {
         try {
-            val response = ApiClient.authApiService.getMyHistory()
+            val response = ApiClient.authApiService.getMyHistory(limit, mode)
             if (response.isSuccessful) {
                 UserResult.Success(response.body() ?: emptyList())
             } else {
@@ -223,9 +223,9 @@ object GamesRepository {
             UserResult.Error(e.message ?: "Error de conexión")
         }
     }
-    suspend fun getUserHistory(userId: Int): UserResult<List<HistoryEntry>> = withContext(Dispatchers.IO) {
+    suspend fun getUserHistory(userId: Int, limit: Int? = null, mode: String? = null): UserResult<List<HistoryEntry>> = withContext(Dispatchers.IO) {
         try {
-            val response = ApiClient.authApiService.getUserHistory(userId)
+            val response = ApiClient.authApiService.getUserHistory(userId, limit, mode)
             if (response.isSuccessful) {
                 UserResult.Success(response.body() ?: emptyList())
             } else {

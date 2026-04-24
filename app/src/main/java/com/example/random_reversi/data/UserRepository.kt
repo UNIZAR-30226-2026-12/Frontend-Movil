@@ -68,7 +68,7 @@ object UserRepository {
             } else {
                 val detail = try {
                     val raw = response.errorBody()?.string()
-                    if (raw.isNullOrBlank()) null else JSONObject(raw).optString("detail", null)
+                    if (raw.isNullOrBlank()) null else JSONObject(raw).optString("detail", "")
                 } catch (_: Exception) {
                     null
                 }
@@ -136,7 +136,7 @@ object UserRepository {
             } else {
                 val detail = try {
                     val raw = response.errorBody()?.string()
-                    if (raw.isNullOrBlank()) null else JSONObject(raw).optString("detail", null)
+                    if (raw.isNullOrBlank()) null else JSONObject(raw).optString("detail", "")
                 } catch (_: Exception) {
                     null
                 }

@@ -166,7 +166,8 @@ data class GameInviteInfo(
     val avatar_url: String?,
     val rr: Int?,
     @SerializedName(value = "gameMode", alternate = ["mode", "gamemode", "game_mode"])
-    val gameMode: String?
+    val gameMode: String?,
+    val status: String? = null
 )
 
 data class PausedGameInfo(
@@ -362,13 +363,20 @@ interface AuthApiService {
     // ── History ──
 
     @GET("api/users/me/history")
-    suspend fun getMyHistory(): Response<List<HistoryEntry>>
+    suspend fun getMyHistory(
+        @Query("limit") limit: Int? = null,
+        @Query("mode") mode: String? = null
+    ): Response<List<HistoryEntry>>
 
     @POST("api/users/me/history")
     suspend fun addHistory(@Body request: AddHistoryRequest): Response<MessageResponse>
 
     @GET("api/users/{user_id}/history")
-    suspend fun getUserHistory(@Path("user_id") userId: Int): Response<List<HistoryEntry>>
+    suspend fun getUserHistory(
+        @Path("user_id") userId: Int,
+        @Query("limit") limit: Int? = null,
+        @Query("mode") mode: String? = null
+    ): Response<List<HistoryEntry>>
 
     // ── Friends / Social ──
 

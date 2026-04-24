@@ -120,14 +120,42 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
         loadPanel()
     }
 
-    LaunchedEffect(panel) {
+    LaunchedEffect(Unit) {
         while (true) {
-            delay(5000)
+            delay(3000) // Poll every 3 seconds for "real-time" feel
             when (val result = FriendsRepository.getSocialPanel()) {
-                is UserResult.Success -> panel = result.data
+                is UserResult.Success -> {
+                    panel = result.data
+                    // Update chatFriend if it's open to reflect latest status/unread
+                    chatFriend?.let { current ->
+                        result.data.friends.find { it.id == current.id }?.let { updated ->
+                            chatFriend = updated
+                        }
+                    }
+                }
                 is UserResult.Error -> Unit
             }
         }
+    }
+
+    // Map to ensure consistent status across different lists (e.g. if a friend sends an invite)
+    val globalStatusMap = remember(panel) {
+        val map = mutableMapOf<Int, String?>()
+        // We initialize with the friends list as the source of truth
+        panel?.friends?.forEach { map[it.id] = it.status }
+        
+        // Then we enrich with requests if they have a non-null status
+        panel?.requests?.forEach { req ->
+            if (req.status != null) map[req.id] = req.status
+        }
+        
+        // And game invitations
+        panel?.gameRequests?.forEach { invite ->
+            invite.id?.let { inviterId ->
+                if (invite.status != null) map[inviterId] = invite.status
+            }
+        }
+        map
     }
 
     LaunchedEffect(toastMessage) {
@@ -266,6 +294,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                     data.friends.forEach { friend ->
                                         FriendRow(
                                             friend = friend,
+                                            globalStatusMap = globalStatusMap,
                                             onProfile = { onNavigate("profile/${friend.id}/${Uri.encode(friend.name)}/friends") },
                                             onChat = {
                                                 chatFriend = friend
@@ -395,6 +424,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                     data.requests.forEach { req ->
                                         RequestRow(
                                             friend = req,
+                                            globalStatusMap = globalStatusMap,
                                             onAccept = {
                                                 scope.launch {
                                                     if (FriendsRepository.acceptFriendRequest(req.id) is UserResult.Success) loadPanel()
@@ -478,6 +508,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                     data.gameRequests.forEach { invite ->
                                         GameInviteRow(
                                             invite = invite,
+                                            globalStatusMap = globalStatusMap,
                                             onAccept = {
                                                 scope.launch {
                                                     when (val result = GamesRepository.acceptGameInvite(invite.lobby_id)) {
@@ -758,6 +789,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
     if (chatFriend != null) {
         ChatDialog(
             friend = chatFriend!!,
+            globalStatusMap = globalStatusMap,
             messages = chatMessages,
             loading = chatLoading,
             input = chatInput,
@@ -792,6 +824,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
 @Composable
 private fun FriendRow(
     friend: FriendInfo,
+    globalStatusMap: Map<Int, String?>,
     onProfile: () -> Unit,
     onChat: () -> Unit,
     onInvite1v1: () -> Unit,
@@ -813,23 +846,7 @@ private fun FriendRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Box(contentAlignment = Alignment.TopEnd) {
-                AvatarSmall(friend.avatar_url, friend.name)
-                
-                val statusColor = when (friend.status?.lowercase()) {
-                    "online" -> Color(0xFF4ADE80)
-                    "playing" -> Color(0xFFFBBF24)
-                    else -> Color(0xFF9CA3AF)
-                }
-                Box(
-                    modifier = Modifier
-                        .size(11.dp)
-                        .offset(x = 1.dp, y = -1.dp)
-                        .clip(CircleShape)
-                        .background(statusColor)
-                        .border(1.dp, Color.Black, CircleShape)
-                )
-            }
+            AvatarWithStatus(friend.avatar_url, friend.name, globalStatusMap[friend.id] ?: friend.status)
             Spacer(modifier = Modifier.width(8.dp))
 
             Text(
@@ -915,6 +932,7 @@ private fun FriendRow(
 @Composable
 private fun RequestRow(
     friend: FriendInfo,
+    globalStatusMap: Map<Int, String?>,
     onAccept: () -> Unit,
     onReject: () -> Unit
 ) {
@@ -933,7 +951,7 @@ private fun RequestRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            AvatarSmall(friend.avatar_url, friend.name)
+            AvatarWithStatus(friend.avatar_url, friend.name, globalStatusMap[friend.id] ?: friend.status)
             Spacer(modifier = Modifier.width(8.dp))
 
             Text(
@@ -999,6 +1017,7 @@ private fun RequestRow(
 @Composable
 private fun GameInviteRow(
     invite: GameInviteInfo,
+    globalStatusMap: Map<Int, String?>,
     onAccept: () -> Unit,
     onReject: () -> Unit
 ) {
@@ -1021,7 +1040,7 @@ private fun GameInviteRow(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AvatarSmall(invite.avatar_url, invite.name ?: "?")
+            AvatarWithStatus(invite.avatar_url, invite.name ?: "?", invite.id?.let { globalStatusMap[it] } ?: invite.status)
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -1147,6 +1166,7 @@ private fun PausedGameRow(
 @Composable
 private fun ChatDialog(
     friend: FriendInfo,
+    globalStatusMap: Map<Int, String?>,
     messages: List<ChatMessage>,
     loading: Boolean,
     input: String,
@@ -1167,7 +1187,7 @@ private fun ChatDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AvatarSmall(friend.avatar_url, friend.name)
+                    AvatarWithStatus(friend.avatar_url, friend.name, globalStatusMap[friend.id] ?: friend.status)
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         friend.name,
@@ -1268,6 +1288,29 @@ private fun ChatDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AvatarWithStatus(avatarUrl: String?, name: String, status: String?) {
+    Box(contentAlignment = Alignment.TopEnd) {
+        AvatarSmall(avatarUrl, name)
+        
+        val s = status?.lowercase()?.trim()
+        val statusColor = when (s) {
+            "online" -> Color(0xFF4ADE80)
+            "playing" -> Color(0xFFFBBF24)
+            // Anything else (null, "offline", empty, etc.) is considered offline/red
+            else -> Color(0xFFF87171)
+        }
+        Box(
+            modifier = Modifier
+                .size(11.dp)
+                .offset(x = 1.dp, y = -1.dp)
+                .clip(CircleShape)
+                .background(statusColor)
+                .border(1.dp, Color.Black, CircleShape)
+        )
     }
 }
 
