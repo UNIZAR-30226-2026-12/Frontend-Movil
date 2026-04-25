@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -32,6 +33,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -62,9 +64,37 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Popup
+import com.example.random_reversi.data.remote.SkillsInventory
 
 private val BOARD_SIZE = 8
+
+// Metadatos de cada habilidad: nombre, drawable res y si necesita selección de casilla
+data class AbilityMeta(val name: String, val drawableRes: Int, val needsTarget: Boolean, val description: String = "")
+
+val ABILITY_META_MOVIL = mapOf(
+    "bomb"              to AbilityMeta("Bomba 3x3",            R.drawable.ingame_skill_bomba,                true,  "Elimina todas las fichas en un área 3×3 alrededor de la casilla elegida."),
+    "fix_piece"         to AbilityMeta("Fijar ficha",          R.drawable.ingame_skill_ficha_fija,           true,  "Fija una ficha tuya para que no pueda ser volteada por el rival."),
+    "unfix_piece"       to AbilityMeta("Quitar fijación",      R.drawable.ingame_skill_quitar_ficha_fija,    true,  "Elimina el estado fijado de una ficha rival."),
+    "flip_rival"        to AbilityMeta("Girar rival",          R.drawable.ingame_skill_voltear_ficha,        true,  "Voltea una ficha rival a tu color sin gastar un movimiento."),
+    "place_free"        to AbilityMeta("Ficha libre",          R.drawable.ingame_skill_ficha_libre,          true,  "Coloca una ficha tuya en cualquier casilla vacía del tablero."),
+    "skip_rival"        to AbilityMeta("Saltar turno",         R.drawable.ingame_skill_saltar_turno,         false, "Hace que el rival pierda su próximo turno."),
+    "steal_skill"       to AbilityMeta("Robar habilidad",      R.drawable.ingame_skill_robar_habilidad,      false, "Roba una habilidad aleatoria del inventario rival."),
+    "exchange_skill"    to AbilityMeta("Intercambiar hab.",    R.drawable.ingame_skill_intercambiar_habilidad,false, "Intercambia una habilidad aleatoria con el rival."),
+    "give_skill"        to AbilityMeta("Dar habilidad",        R.drawable.ingame_skill_dar_habilidad,        false, "Regala una de tus habilidades al rival (a cambio de un beneficio)."),
+    "swap_colors"       to AbilityMeta("Cambiar colores",      R.drawable.ingame_skill_intercambio_color,    false, "Intercambia el color de todas las fichas del tablero."),
+    "lose_turn"         to AbilityMeta("Perder turno",         R.drawable.ingame_skill_perder_turno,         false, "Sacrifica tu turno actual a cambio de una ventaja futura."),
+    "gravity"           to AbilityMeta("Gravedad",             R.drawable.ingame_skill_gravedad,             false, "Mueve todas las fichas del tablero en una dirección elegida.")
+)
+
+data class PendingAbilityMobile(val abilityId: String, val inventoryIndex: Int)
 
 data class BoardPlayer(
     val username: String,
@@ -99,6 +129,13 @@ fun GameBoard1v1Screen(
     val scope = rememberCoroutineScope()
     var previousPausedPieces by remember { mutableStateOf(emptySet<String>()) }
     var reconnectedPieces by remember { mutableStateOf(emptySet<String>()) }
+
+    // ── Estado de habilidades ─────────────────────────────────────────
+    val skillsInventory by ws?.skillsInventory?.collectAsState()
+        ?: remember { mutableStateOf(SkillsInventory()) }
+    var pendingAbility by remember { mutableStateOf<PendingAbilityMobile?>(null) }
+    var selectingGravityFor by remember { mutableStateOf<Int?>(null) } // inventoryIndex
+    var showGravityMenu by remember { mutableStateOf(false) }
 
     val parsedPlayers = remember(roomPlayersRaw) {
         roomPlayersRaw.mapNotNull { raw ->
@@ -229,70 +266,86 @@ fun GameBoard1v1Screen(
             contentScale = ContentScale.Crop
         )
 
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(38.dp))
-
-            // ── Cabecera: TURNO ACTUAL + nombre + estado ──────────────
-            val turnStatusText = when {
-                gameOver -> when {
-                    gameState.winner == null -> "¡Empate!"
-                    gameState.winner == effectiveMyPiece -> "¡Has ganado!"
-                    else -> "Has perdido"
-                }
-                waitingForPausedPlayer -> "Partida pausada"
-                localIsPaused -> "Partida pausada"
-                isMyTurn -> "Tu turno"
-                else -> "Turno del rival"
+        // ── Nueva Cabecera Flotante (Turno + Abandonar) ──────────────
+        val turnStatusText = when {
+            gameOver -> when {
+                gameState.winner == null -> "¡Empate!"
+                gameState.winner == effectiveMyPiece -> "¡Has ganado!"
+                else -> "Has perdido"
             }
-            val colorLabel = if (effectiveMyPiece == "black") myPieceName else opponentPieceName
+            waitingForPausedPlayer -> "Partida pausada"
+            localIsPaused -> "Partida pausada"
+            isMyTurn -> "Tu turno"
+            else -> "Turno del rival"
+        }
+        val colorLabel = if (effectiveMyPiece == "black") myPieceName else opponentPieceName
 
-            Text(
-                text = "TURNO ACTUAL",
-                color = Color.Black,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.ExtraBold
+        // ── Información de Turno (Independiente / Flotante) ──────────
+        Box(
+            modifier = Modifier
+                .offset(x = 10.dp, y = 35.dp)
+                .align(Alignment.TopStart)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.cartelturno),
+                contentDescription = null,
+                modifier = Modifier.size(width = 180.dp, height = 130.dp),
+                contentScale = ContentScale.FillBounds
             )
-            Text(
-                text = "$myDisplayName ($colorLabel)",
-                color = Color.Black,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                text = turnStatusText,
-                color = Color(0xFF1B4B3A),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ── Botones Pausar / Abandonar ────────────────────────────
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (returnTo == "friends" && !gameOver) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ingame_carteljugador),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(36.dp)
-                            .clickable { showPauseConfirm = true },
-                        contentScale = ContentScale.FillHeight
-                    )
-                }
-                Image(
-                    painter = painterResource(id = R.drawable.salamovil_abandonar),
-                    contentDescription = "Abandonar",
-                    modifier = Modifier
-                        .height(40.dp)
-                        .clickable { showSurrenderConfirm = true },
-                    contentScale = ContentScale.FillHeight
+            Column(
+                modifier = Modifier.padding(start = 51.5.dp, top = 30.dp),
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy((-2).dp)
+            ) {
+                Text(
+                    text = "TURNO ACTUAL",
+                    color = Color.Black,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = "$myDisplayName ($colorLabel)",
+                    color = Color.Black,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = turnStatusText,
+                    color = Color(0xFF1B4B3A),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 40.dp, end = 20.dp, start = 20.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            
+            Image(
+                painter = painterResource(id = R.drawable.salamovil_abandonar),
+                contentDescription = "Abandonar",
+                modifier = Modifier
+                    .height(65.dp)
+                    .clickable { showSurrenderConfirm = true },
+                contentScale = ContentScale.FillHeight
+            )
+        }
+
+        Column(
+            modifier = Modifier.fillMaxSize().padding(start = 14.dp, end = 14.dp, bottom = 120.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(158.dp)) // 38dp original + ~120dp for the removed header area
+
+
 
             // ── Tarjetas de jugadores ─────────────────────────────────
             Row(
@@ -349,122 +402,184 @@ fun GameBoard1v1Screen(
                         for (row in 0 until BOARD_SIZE) {
                             Row(Modifier.weight(1f)) {
                                 for (col in 0 until BOARD_SIZE) {
-                                    val cellValue = gameState.board.getOrNull(row)?.getOrNull(col)
-                                    val isValidMove = gameState.valid_moves.any { it.size >= 2 && it[0] == row && it[1] == col }
-                                    val canPlayHere = isMyTurn && isValidMove && !gameOver
-                                    GameCell1v1(
-                                        modifier = Modifier.weight(1f),
-                                        cellValue = cellValue,
-                                        isValidMove = canPlayHere,
-                                        style = duelStyle,
-                                        onClick = { if (canPlayHere) ws?.sendMove(row, col) }
-                                    )
+                                    key(row * BOARD_SIZE + col) {
+                                        val cellValue = gameState.board.getOrNull(row)?.getOrNull(col)
+                                        val isValidMove = gameState.valid_moves.any { it.size >= 2 && it[0] == row && it[1] == col }
+                                        val isSkillTile = gameState.skill_tiles.any { it.size >= 2 && it[0] == row && it[1] == col }
+                                        val canPlayHere = isMyTurn && isValidMove && !gameOver && pendingAbility == null
+                                        val pendingTargetClick = pendingAbility != null && !gameOver && isMyTurn
+                                        GameCell1v1(
+                                            modifier = Modifier.weight(1f),
+                                            cellValue = cellValue,
+                                            isValidMove = canPlayHere,
+                                            isSkillTile = isSkillTile,
+                                            isPendingTarget = pendingTargetClick && !canPlayHere,
+                                            style = duelStyle,
+                                            onClick = {
+                                                if (pendingTargetClick) {
+                                                    val pa = pendingAbility!!
+                                                    val opponent = if (effectiveMyPiece == "black") "white" else "black"
+                                                    ws?.sendSkillTargeted(pa.abilityId, row, col, opponent, pa.inventoryIndex)
+                                                    pendingAbility = null
+                                                } else if (canPlayHere) {
+                                                    ws?.sendMove(row, col)
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ── Panel inferior: Chat + Habilidades ────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(130.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ingame_paneljuego),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.FillBounds
-                )
-                Row(modifier = Modifier.fillMaxSize()) {
-                    // Chat
-                    Column(
+            Spacer(modifier = Modifier.height(40.dp))
+        } // Fin de la Column (232)
+ 
+        // ── Panel inferior: Chat + Habilidades (Independiente / Flotante) ──
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .wrapContentHeight()
+                .align(Alignment.BottomCenter)
+                .offset(y = -10.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ingame_paneljuego3),
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth(),
+                contentScale = ContentScale.FillWidth
+            )
+            Row(modifier = Modifier.matchParentSize()) {
+                // Chat
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable { showChat = true }
-                            .padding(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                            .size(130.dp)
+                            .offset(x = 15.dp, y = 10.dp)
+                            .clickable { showChat = true },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            "Chat",
-                            color = Color.Black,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Box(
+                        Image(
+                            painter = painterResource(id = R.drawable.ingame_iconochat),
+                            contentDescription = "Chat",
                             modifier = Modifier
-                                .fillMaxWidth(0.85f)
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFE8D9B0).copy(alpha = 0.7f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ingame_iconochat),
-                                contentDescription = "Chat",
-                                modifier = Modifier.size(44.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                            if (unreadChatCount > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(4.dp)
-                                        .size(18.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFEF4444)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("$unreadChatCount", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
+                                .size(70.dp)
+                                .offset(x = (-5).dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        if (unreadChatCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 4.dp, y = (-4).dp)
+                                    .size(18.dp)
+                                    .background(Color.Red, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (unreadChatCount > 9) "9+" else unreadChatCount.toString(),
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
-                    // Divisor
-                    Box(modifier = Modifier.width(1.dp).fillMaxHeight().padding(vertical = 12.dp).background(Color.Black.copy(alpha = 0.2f)))
-                    // Habilidades
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .padding(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            "Habilidades",
-                            color = Color.Black,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.85f)
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFB8945A).copy(alpha = 0.6f)),
-                            contentAlignment = Alignment.Center
-                        ) {
+                }
+ 
+                // Habilidades
+                val myInventory = if (effectiveMyPiece == "black") skillsInventory.black else skillsInventory.white
+                val opponentColor = if (effectiveMyPiece == "black") "white" else "black"
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (myInventory.isEmpty()) {
+                        // Habilidad pendiente activa aunque no haya inventario (e.g. gravedad)
+                        if (pendingAbility != null || selectingGravityFor != null) {
+                            SkillPendingBar(
+                                text = if (selectingGravityFor != null) "Elige dirección" else "Toca casilla objetivo",
+                                onCancel = { pendingAbility = null; selectingGravityFor = null; showGravityMenu = false }
+                            )
+                        } else {
                             Text(
-                                "Sin habilidades",
-                                color = Color.Black,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
+                                text = "Sin habilidades",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.offset(x = (-10).dp, y = 5.dp)
                             )
+                        }
+                    } else {
+                        // Barra pendiente flotante encima
+                        if (pendingAbility != null) {
+                            SkillPendingBar(
+                                text = "Toca casilla objetivo",
+                                onCancel = { pendingAbility = null }
+                            )
+                        } else if (selectingGravityFor != null) {
+                            GravityDirectionRow(
+                                onDirection = { dir ->
+                                    ws?.sendSkillGravity(dir, selectingGravityFor!!)
+                                    selectingGravityFor = null
+                                    showGravityMenu = false
+                                },
+                                onCancel = { selectingGravityFor = null; showGravityMenu = false }
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(96.dp)
+                                    .offset(x = 20.dp, y = 5.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                itemsIndexed(myInventory.chunked(2)) { chunkIdx, chunk ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        chunk.forEachIndexed { i, abilityId ->
+                                            val idx = chunkIdx * 2 + i
+                                            val meta = ABILITY_META_MOVIL[abilityId]
+                                                ?: AbilityMeta(abilityId, R.drawable.ingame_casillainterrogante, true)
+                                            val isSelected = pendingAbility?.inventoryIndex == idx
+                                            val canUse = isMyTurn && !gameOver
+                                            SkillButton(
+                                                meta = meta,
+                                                isSelected = isSelected,
+                                                canUse = canUse,
+                                                onClick = {
+                                                    if (!canUse) return@SkillButton
+                                                    if (abilityId == "gravity") {
+                                                        selectingGravityFor = idx
+                                                        showGravityMenu = true
+                                                    } else if (meta.needsTarget) {
+                                                        pendingAbility = if (isSelected) null
+                                                        else PendingAbilityMobile(abilityId, idx)
+                                                    } else {
+                                                        ws?.sendSkillInstant(abilityId, opponentColor, idx)
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
 
         if (showSurrenderConfirm) {
@@ -577,7 +692,7 @@ fun GameBoard1v1Screen(
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(0.85f),
+                    modifier = Modifier.fillMaxWidth(1f),
                     shape = RoundedCornerShape(24.dp),
                     color = SurfaceColor,
                     border = BorderStroke(
@@ -677,8 +792,9 @@ fun GameBoard1v1Screen(
                 }
             }
         }
-    }
 }
+}
+
 
 @Composable
 private fun ConnectionBadge(connectionState: String) {
@@ -918,6 +1034,8 @@ private fun GameCell1v1(
     modifier: Modifier,
     cellValue: String?,
     isValidMove: Boolean,
+    isSkillTile: Boolean = false,
+    isPendingTarget: Boolean = false,
     style: BoardPieceStyle1v1,
     onClick: () -> Unit
 ) {
@@ -949,22 +1067,31 @@ private fun GameCell1v1(
         modifier = modifier
             .fillMaxHeight()
             .border(0.5.dp, Color.Black.copy(alpha = 0.2f))
-            .then(if (isValidMove) Modifier.clickable { onClick() } else Modifier),
+            .then(if (isValidMove || isPendingTarget) Modifier.clickable { onClick() } else Modifier),
         contentAlignment = Alignment.Center
     ) {
-        // Indicador de movimiento válido
+        // 1. Casilla interrogante (skill tile vacía) — debajo de la ficha y del indicador
+        if (isSkillTile && cellValue == null) {
+            Image(
+                painter = painterResource(id = R.drawable.ingame_casillainterrogante),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(0.72f),
+                contentScale = ContentScale.Fit
+            )
+        }
+
+        // 2. Indicador de movimiento válido (punto blanco semitransparente)
         if (isValidMove) {
             Box(
                 modifier = Modifier
                     .fillMaxSize(0.35f)
                     .clip(CircleShape)
-                    .background(Color.Gray.copy(alpha = 0.45f))
+                    .background(Color.White.copy(alpha = 0.45f))
             )
         }
 
-        // Ficha animada
+        // 3. Ficha animada — siempre encima
         if (cellValue != null || hasAppeared) {
-            // Cambiamos el color de la ficha a la mitad del giro (a los 90º)
             val isFlipped = rotationY > 90f
             val pieceColor = if (isFlipped) style.sideB else style.sideA
 
@@ -975,12 +1102,173 @@ private fun GameCell1v1(
                         this.rotationY = rotationY
                         this.scaleX = scale
                         this.scaleY = scale
-                        this.cameraDistance = 12f * density // Añade perspectiva 3D
+                        this.cameraDistance = 12f * density
                     }
                     .clip(CircleShape)
                     .background(pieceColor)
                     .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
             )
+        }
+
+        // 4. Highlight de objetivo pendiente — semitransparente, encima de todo
+        if (isPendingTarget) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFFFD700).copy(alpha = 0.18f))
+            )
+        }
+    }
+}
+
+// ── Botón de habilidad en el inventario ─────────────────────────────────────
+@Composable
+fun SkillButton(
+    meta: AbilityMeta,
+    isSelected: Boolean,
+    canUse: Boolean,
+    onClick: () -> Unit
+) {
+    var showTooltip by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .then(
+                if (isSelected)
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(2.dp, Color(0xFFFFD700), RoundedCornerShape(8.dp))
+                else Modifier
+            )
+            .pointerInput(canUse) {
+                detectTapGestures(
+                    onLongPress = { showTooltip = true },
+                    onTap = { if (canUse) onClick() }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = meta.drawableRes),
+            contentDescription = meta.name,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit,
+            alpha = if (canUse) 1f else 0.45f
+        )
+
+        // Tooltip emergente al hacer long-press
+        if (showTooltip) {
+            Popup(
+                alignment = Alignment.BottomCenter,
+                offset = IntOffset(0, -56),
+                onDismissRequest = { showTooltip = false }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .widthIn(min = 120.dp, max = 200.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF1A1209).copy(alpha = 0.93f))
+                        .border(1.dp, Color(0xFFFFD700).copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .clickable { showTooltip = false }
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text = meta.name,
+                            color = Color(0xFFFFD700),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        if (meta.description.isNotEmpty()) {
+                            Text(
+                                text = meta.description,
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 10.sp,
+                                lineHeight = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Barra de "habilidad pendiente": cancela la selección ─────────────────────
+@Composable
+fun SkillPendingBar(text: String, onCancel: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .offset(x = (-8).dp, y = 5.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFFFFD700).copy(alpha = 0.15f))
+            .border(1.dp, Color(0xFFFFD700).copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = text,
+            color = Color(0xFFFFD700),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "✕",
+            color = Color.White,
+            fontSize = 14.sp,
+            modifier = Modifier.clickable { onCancel() }.padding(start = 6.dp)
+        )
+    }
+}
+
+// ── Selector de dirección de gravedad ────────────────────────────────────────
+@Composable
+fun GravityDirectionRow(onDirection: (String) -> Unit, onCancel: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .offset(x = (-8).dp, y = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(
+            "Dirección gravedad:",
+            color = Color.White,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            listOf("↑" to "up", "↓" to "down", "←" to "left", "→" to "right").forEach { (label, dir) ->
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF1B4B3A))
+                        .border(1.dp, Color(0xFF4ADE80), RoundedCornerShape(6.dp))
+                        .clickable { onDirection(dir) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF4B1B1B))
+                    .border(1.dp, Color(0xFFF87171), RoundedCornerShape(6.dp))
+                    .clickable { onCancel() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("✕", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

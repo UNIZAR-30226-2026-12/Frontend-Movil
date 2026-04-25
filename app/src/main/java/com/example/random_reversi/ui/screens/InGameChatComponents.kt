@@ -1,18 +1,24 @@
 package com.example.random_reversi.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,7 +40,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -103,30 +113,30 @@ fun InGameChatOverlay(
             .background(Color.Black.copy(alpha = 0.65f)),
         contentAlignment = Alignment.Center
     ) {
-        Surface(
-            color = BgColor,
-            shape = RoundedCornerShape(16.dp),
+        Box(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .fillMaxSize(0.62f)
+                .fillMaxHeight(0.85f)
         ) {
+            Image(
+                painter = painterResource(id = com.example.random_reversi.R.drawable.chatmovil),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                Spacer(modifier = Modifier.height(75.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Chat de partida", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-                    TextButton(onClick = onClose) {
-                        Text("Cerrar", color = TextMutedColor)
-                    }
+                    Text("Chat de partida", color = Color(0xFF2C1B0C), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Surface(
-                    color = Color.Black.copy(alpha = 0.22f),
-                    shape = RoundedCornerShape(12.dp),
+                Box(
                     modifier = Modifier.weight(1f).fillMaxWidth()
                 ) {
                     if (messages.isEmpty()) {
@@ -148,13 +158,26 @@ fun InGameChatOverlay(
                                     if (!mine) {
                                         Text(sender, color = TextMutedColor, fontSize = 11.sp)
                                     }
-                                    Surface(
-                                        color = if (mine) PrimaryColor.copy(alpha = 0.85f) else Color(0xFF374151).copy(alpha = 0.85f),
-                                        shape = RoundedCornerShape(10.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .background(
+                                                brush = if (mine) {
+                                                    Brush.verticalGradient(listOf(Color(0xFFE8B56B), Color(0xFFD9984D)))
+                                                } else {
+                                                    Brush.verticalGradient(listOf(Color(0xFFFCF1DB), Color(0xFFFCF1DB)))
+                                                },
+                                                shape = RoundedCornerShape(10.dp)
+                                            )
+                                            .border(
+                                                1.dp,
+                                                if (mine) Color(0xFF865525).copy(alpha = 0.28f)
+                                                else Color(0xFF785228).copy(alpha = 0.2f),
+                                                RoundedCornerShape(10.dp)
+                                            )
                                     ) {
                                         Text(
                                             text = message,
-                                            color = Color.White,
+                                            color = if (mine) Color(0xFF2B1707) else Color(0xFF2C1B0C),
                                             fontSize = 13.sp,
                                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                                         )
@@ -172,11 +195,16 @@ fun InGameChatOverlay(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    TextField(
+                    BasicTextField(
                         value = text,
                         onValueChange = { text = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Escribe un mensaje...") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .offset(x = 10.dp)
+                            .height(48.dp)
+                            .background(Color(0xFFFFF7E9).copy(alpha = 0.75f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp),
+                        textStyle = TextStyle(color = Color(0xFF2C1B0C), fontSize = 14.sp),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(
@@ -188,15 +216,14 @@ fun InGameChatOverlay(
                                 }
                             }
                         ),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Black.copy(alpha = 0.25f),
-                            unfocusedContainerColor = Color.Black.copy(alpha = 0.25f),
-                            disabledContainerColor = Color.Black.copy(alpha = 0.25f),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        )
+                        decorationBox = { innerTextField ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (text.isEmpty()) {
+                                    Text("Escribe un mensaje...", color = Color(0xFF2C1B0C).copy(alpha = 0.5f), fontSize = 14.sp)
+                                }
+                                innerTextField()
+                            }
+                        }
                     )
 
                     Button(
@@ -207,12 +234,28 @@ fun InGameChatOverlay(
                                 text = ""
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD9984D)),
+                        shape = RoundedCornerShape(7.dp),
+                        modifier = Modifier
+                            .height(48.dp)
+                            .padding(horizontal = 4.dp)
                     ) {
                         Text("Enviar")
                     }
                 }
             }
+            
+            // Botón X (Cerrar)
+            Image(
+                painter = painterResource(id = com.example.random_reversi.R.drawable.x),
+                contentDescription = "Cerrar",
+                modifier = Modifier
+                    .size(28.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-10).dp, y = 50.dp)
+                    .clickable { onClose() },
+                contentScale = ContentScale.Fit
+            )
         }
     }
 }

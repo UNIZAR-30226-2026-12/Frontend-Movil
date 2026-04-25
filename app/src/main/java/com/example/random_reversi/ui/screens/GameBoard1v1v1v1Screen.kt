@@ -1,4 +1,4 @@
-﻿package com.example.random_reversi.ui.screens
+package com.example.random_reversi.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -40,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -48,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.random_reversi.R
 import com.example.random_reversi.data.UserRepository
 import com.example.random_reversi.data.UserResult
 import com.example.random_reversi.data.remote.GameWebSocket
@@ -59,6 +63,8 @@ import com.example.random_reversi.ui.theme.TextMutedColor
 import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.ui.graphics.graphicsLayer
@@ -102,6 +108,13 @@ fun GameBoard1v1v1v1Screen(
     val scope = rememberCoroutineScope()
     var previousPausedPieces by remember { mutableStateOf(emptySet<String>()) }
     var reconnectedPieces by remember { mutableStateOf(emptySet<String>()) }
+
+    // ── Estado de habilidades ─────────────────────────────────────────
+    val skillsInventory by ws?.skillsInventory?.collectAsState()
+        ?: remember { mutableStateOf(com.example.random_reversi.data.remote.SkillsInventory()) }
+    var pendingAbility by remember { mutableStateOf<PendingAbilityMobile?>(null) }
+    var selectingGravityFor by remember { mutableStateOf<Int?>(null) } // inventoryIndex
+    var showGravityMenu by remember { mutableStateOf(false) }
 
     val players = remember(roomPlayersRaw, myUsername, myElo, myAvatar) {
         val parsed = roomPlayersRaw.mapIndexedNotNull { index, raw ->
@@ -227,139 +240,119 @@ fun GameBoard1v1v1v1Screen(
         abandonNotice = null
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(BgColor)) {
+    Box(modifier = Modifier.fillMaxSize()) {
         Image(
-            painter = painterResource(id = arenaTheme.backgroundRes),
+            painter = painterResource(id = R.drawable.nuevofondomovil),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            alpha = 0.45f
+            contentScale = ContentScale.Crop
         )
 
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        val currentPlayerName = nameForPiece(
+            gameState.current_player,
+            gameState.username_by_piece,
+            playerByPiece
+        )
+        val turnStatusText = when {
+            gameOver -> if (gameState.winner == effectiveMyPiece) "Has ganado" else "Partida finalizada"
+            waitingForPausedPlayer -> "Partida pausada"
+            localIsPaused -> "Partida pausada"
+            canPlayThisTurn -> "Tu turno"
+            else -> "Turno del rival"
+        }
+        val displayTurnName = if (canPlayThisTurn) myUsername else currentPlayerName
+
+        Box(
+            modifier = Modifier
+                .offset(x = 10.dp, y = 35.dp)
+                .align(Alignment.TopStart)
         ) {
-            Spacer(modifier = Modifier.height(44.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                InGameChatButton(
-                    unreadCount = unreadChatCount,
-                    onClick = { showChat = true }
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (returnTo == "friends" && !gameOver) {
-                        OutlinedButton(
-                            onClick = { showPauseConfirm = true },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFFE5E7EB),
-                                containerColor = Color(0xFF64748B).copy(alpha = 0.2f)
-                            ),
-                            border = BorderStroke(1.dp, Color(0xFF94A3B8).copy(alpha = 0.45f)),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Text("Pausar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = { showLeaveConfirm = true },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFFCA5A5),
-                            containerColor = Color(0xFFF87171).copy(alpha = 0.15f)
-                        ),
-                        border = BorderStroke(1.dp, Color(0xFFF87171).copy(alpha = 0.35f)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text("Abandonar", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Surface(
-                color = when {
-                    gameOver -> Color.DarkGray
-                    canPlayThisTurn -> PrimaryColor
-                    else -> SurfaceColor
-                },
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+            Image(
+                painter = painterResource(id = R.drawable.cartelturno),
+                contentDescription = null,
+                modifier = Modifier.size(width = 180.dp, height = 130.dp),
+                contentScale = ContentScale.FillBounds
+            )
+            Column(
+                modifier = Modifier.padding(start = 51.5.dp, top = 30.dp),
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy((-2).dp)
             ) {
                 Text(
-                    text = when {
-                        gameOver -> if (gameState.winner == effectiveMyPiece) "Has ganado" else "Partida finalizada"
-                        waitingForPausedPlayer -> "Partida pausada: Espera a que vuelva ${
-                            nameForPiece(
-                                gameState.current_player,
-                                gameState.username_by_piece,
-                                playerByPiece
-                            )
-                        }"
-
-                        localIsPaused -> "Has pausado la partida"
-                        canPlayThisTurn -> "Tu turno"
-                        else -> "Turno de ${
-                            nameForPiece(
-                                gameState.current_player,
-                                gameState.username_by_piece,
-                                playerByPiece
-                            )
-                        }"
-                    },
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    fontSize = 13.sp,
+                    text = "TURNO ACTUAL",
+                    color = Color.Black,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
+                Text(
+                    text = displayTurnName,
+                    color = Color.Black,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = turnStatusText,
+                    color = Color(0xFF1B4B3A),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 40.dp, end = 20.dp, start = 20.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.salamovil_abandonar),
+                contentDescription = "Abandonar",
+                modifier = Modifier
+                    .height(65.dp)
+                    .clickable { showLeaveConfirm = true },
+                contentScale = ContentScale.FillHeight
+            )
+        }
+
+        Column(
+            modifier = Modifier.fillMaxSize().padding(start = 14.dp, end = 14.dp, bottom = 120.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(158.dp))
 
             if (!abandonNotice.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     abandonNotice ?: "",
                     color = Color(0xFFFCA5A5),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(modifier = Modifier.height(6.dp))
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PlayerPanel4p(
+                    PlayerCard4pIngame(
                         modifier = Modifier.weight(1f),
                         player = playerByPiece["black"],
                         fallbackName = "Jugador 1",
-                        fallbackColor = quadStyle.p1Name,
                         avatarOverride = if (effectiveMyPiece == "black") myAvatar else null,
                         score = gameState.scores["black"] ?: 0,
-                        pieceColor = quadStyle.p1,
                         isActive = gameState.current_player == "black" && !gameOver,
                         abandoned = abandonedPieces.contains("black"),
                         paused = pausedPieces.contains("black"),
                         reconnected = reconnectedPieces.contains("black")
                     )
-                    PlayerPanel4p(
+                    PlayerCard4pIngame(
                         modifier = Modifier.weight(1f),
                         player = playerByPiece["white"],
                         fallbackName = "Jugador 2",
-                        fallbackColor = quadStyle.p2Name,
                         avatarOverride = if (effectiveMyPiece == "white") myAvatar else null,
                         score = gameState.scores["white"] ?: 0,
-                        pieceColor = quadStyle.p2,
                         isActive = gameState.current_player == "white" && !gameOver,
                         abandoned = abandonedPieces.contains("white"),
                         paused = pausedPieces.contains("white"),
@@ -367,27 +360,23 @@ fun GameBoard1v1v1v1Screen(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PlayerPanel4p(
+                    PlayerCard4pIngame(
                         modifier = Modifier.weight(1f),
                         player = playerByPiece["red"],
                         fallbackName = "Jugador 3",
-                        fallbackColor = quadStyle.p3Name,
                         avatarOverride = if (effectiveMyPiece == "red") myAvatar else null,
                         score = gameState.scores["red"] ?: 0,
-                        pieceColor = quadStyle.p3,
                         isActive = gameState.current_player == "red" && !gameOver,
                         abandoned = abandonedPieces.contains("red"),
                         paused = pausedPieces.contains("red"),
                         reconnected = reconnectedPieces.contains("red")
                     )
-                    PlayerPanel4p(
+                    PlayerCard4pIngame(
                         modifier = Modifier.weight(1f),
                         player = playerByPiece["blue"],
                         fallbackName = "Jugador 4",
-                        fallbackColor = quadStyle.p4Name,
                         avatarOverride = if (effectiveMyPiece == "blue") myAvatar else null,
                         score = gameState.scores["blue"] ?: 0,
-                        pieceColor = quadStyle.p4,
                         isActive = gameState.current_player == "blue" && !gameOver,
                         abandoned = abandonedPieces.contains("blue"),
                         paused = pausedPieces.contains("blue"),
@@ -396,27 +385,33 @@ fun GameBoard1v1v1v1Screen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFF204D2B))
-                    .border(4.dp, Color.Black.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                    .aspectRatio(0.88f)
             ) {
-                val boardInset = 12.dp
-                val boardData = gameState.board
-                val hasBoard = boardData.isNotEmpty()
+                // Fondo decorativo del tablero
+                Image(
+                    painter = painterResource(id = R.drawable.ingame_fondotablero),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.FillBounds
+                )
 
+                // Grid del tablero
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(boardInset)
+                        .fillMaxWidth(0.82f)
+                        .aspectRatio(1f)
+                        .align(Alignment.Center)
                 ) {
+                    val boardData = gameState.board
+                    val hasBoard = boardData.isNotEmpty()
+
                     Image(
-                        painter = painterResource(id = arenaTheme.boardRes),
+                        painter = painterResource(id = if (selectedQuadrant == null) R.drawable.ingame_tablero1v1v1v1 else R.drawable.ingame_tablero1vs1v2),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.FillBounds
@@ -465,15 +460,26 @@ fun GameBoard1v1v1v1Screen(
                                         val cellValue = boardData.getOrNull(r)?.getOrNull(c)
                                         val isValidMove =
                                             gameState.valid_moves.any { it.size >= 2 && it[0] == r && it[1] == c }
-                                        val canPlayHere = canPlayThisTurn && isValidMove
+                                        val isSkillTile = gameState.skill_tiles.any { it.size >= 2 && it[0] == r && it[1] == c }
+                                        val pendingTargetClick = pendingAbility != null && !gameOver && canPlayThisTurn
+                                        val canPlayHere = canPlayThisTurn && isValidMove && pendingAbility == null
 
                                         GameCell4p(
                                             modifier = Modifier.weight(1f),
                                             cellValue = cellValue,
                                             style = quadStyle,
                                             isValidMove = canPlayHere,
+                                            isSkillTile = isSkillTile,
+                                            isPendingTarget = pendingTargetClick && !canPlayHere,
                                             onClick = {
-                                                if (canPlayHere) {
+                                                if (pendingTargetClick) {
+                                                    val pa = pendingAbility!!
+                                                    val opponents = playerByPiece.keys.filter { it != effectiveMyPiece && it in gameState.scores.keys }
+                                                    val targetOpponent = opponents.maxByOrNull { gameState.scores[it] ?: 0 } ?: "black"
+                                                    ws?.sendSkillTargeted(pa.abilityId, r, c, targetOpponent, pa.inventoryIndex)
+                                                    pendingAbility = null
+                                                    selectedQuadrant = null
+                                                } else if (canPlayHere) {
                                                     ws?.sendMove(r, c)
                                                     selectedQuadrant = null
                                                 }
@@ -506,7 +512,158 @@ fun GameBoard1v1v1v1Screen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(40.dp))
+        }
+
+        // ── Panel inferior: Chat (Independiente / Flotante) ──
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .wrapContentHeight()
+                .align(Alignment.BottomCenter)
+                .offset(y = 45.dp) //-10
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ingame_paneljuego),
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth(),
+                contentScale = ContentScale.FillWidth
+            )
+            Row(modifier = Modifier.matchParentSize()) {
+                // Chat
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(130.dp)
+                            .offset(x = 15.dp, y = 10.dp)
+                            .clickable { showChat = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ingame_iconochat),
+                            contentDescription = "Chat",
+                            modifier = Modifier
+                                .size(70.dp)
+                                .offset(x = (-5).dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        if (unreadChatCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 4.dp, y = (-4).dp)
+                                    .size(18.dp)
+                                    .background(Color.Red, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (unreadChatCount > 9) "9+" else unreadChatCount.toString(),
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Habilidades
+                val myInventory = when (effectiveMyPiece) {
+                    "black" -> skillsInventory.black
+                    "white" -> skillsInventory.white
+                    "red" -> skillsInventory.red
+                    "blue" -> skillsInventory.blue
+                    else -> emptyList()
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (myInventory.isEmpty()) {
+                        if (pendingAbility != null || selectingGravityFor != null) {
+                            SkillPendingBar(
+                                text = if (selectingGravityFor != null) "Elige dirección" else "Toca casilla objetivo",
+                                onCancel = { pendingAbility = null; selectingGravityFor = null; showGravityMenu = false }
+                            )
+                        } else {
+                            Text(
+                                text = "Sin habilidades",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.offset(x = (-10).dp, y = 5.dp)
+                            )
+                        }
+                    } else {
+                        if (pendingAbility != null) {
+                            SkillPendingBar(
+                                text = "Toca casilla objetivo",
+                                onCancel = { pendingAbility = null }
+                            )
+                        } else if (selectingGravityFor != null) {
+                            GravityDirectionRow(
+                                onDirection = { dir ->
+                                    ws?.sendSkillGravity(dir, selectingGravityFor!!)
+                                    selectingGravityFor = null
+                                    showGravityMenu = false
+                                },
+                                onCancel = { selectingGravityFor = null; showGravityMenu = false }
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(96.dp)
+                                    .offset(x = 20.dp, y = 5.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                itemsIndexed(myInventory.chunked(2)) { chunkIdx, chunk ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        chunk.forEachIndexed { i, abilityId ->
+                                            val idx = chunkIdx * 2 + i
+                                            val meta = ABILITY_META_MOVIL[abilityId]
+                                                ?: AbilityMeta(abilityId, R.drawable.ingame_casillainterrogante, true)
+                                            val isSelected = pendingAbility?.inventoryIndex == idx
+                                            val canUse = canPlayThisTurn && !gameOver
+                                            SkillButton(
+                                                meta = meta,
+                                                isSelected = isSelected,
+                                                canUse = canUse,
+                                                onClick = {
+                                                    if (!canUse) return@SkillButton
+                                                    if (abilityId == "gravity") {
+                                                        selectingGravityFor = idx
+                                                        showGravityMenu = true
+                                                    } else if (meta.needsTarget) {
+                                                        pendingAbility = if (isSelected) null
+                                                        else PendingAbilityMobile(abilityId, idx)
+                                                    } else {
+                                                        val opponents = playerByPiece.keys.filter { it != effectiveMyPiece && it in gameState.scores.keys }
+                                                        val targetOpponent = opponents.maxByOrNull { gameState.scores[it] ?: 0 } ?: "black"
+                                                        ws?.sendSkillInstant(abilityId, targetOpponent, idx)
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (showLeaveConfirm) {
@@ -754,14 +911,12 @@ private fun nameForPiece(
 }
 
 @Composable
-private fun PlayerPanel4p(
+private fun PlayerCard4pIngame(
     modifier: Modifier = Modifier,
     player: QuadPlayer?,
     fallbackName: String,
-    fallbackColor: String,
     avatarOverride: String?,
     score: Int,
-    pieceColor: Color,
     isActive: Boolean,
     abandoned: Boolean,
     paused: Boolean,
@@ -769,83 +924,74 @@ private fun PlayerPanel4p(
 ) {
     val name = player?.username ?: fallbackName
     val avatar = avatarOverride ?: player?.avatarUrl
-    val rr = player?.rr ?: 1000
 
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = when {
-            abandoned -> Color(0xFF7F1D1D).copy(alpha = 0.35f)
-            paused -> Color(0xFF334155).copy(alpha = 0.35f)
-            reconnected -> Color(0xFF14532D).copy(alpha = 0.4f)
-            else -> Color.Black.copy(alpha = 0.28f)
-        },
-        border = BorderStroke(
-            1.dp,
-            when {
-                abandoned -> Color(0xFFEF4444)
-                paused -> Color(0xFF94A3B8)
-                reconnected -> Color(0xFF4ADE80)
-                isActive -> Color(0xFFFBBF24)
-                else -> BorderColor
-            }
+    Box(modifier = modifier.height(72.dp)) {
+        Image(
+            painter = painterResource(id = R.drawable.ingame_carteljugador),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds
         )
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AvatarCircle4p(name = name, avatarUrl = avatar)
-                Spacer(modifier = Modifier.width(6.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = name,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Avatar con borde activo
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .offset(x = 8.dp)
+                    .rotate(-3f)
+                    .border(
+                        2.dp,
+                        when {
+                            abandoned -> Color(0xFFEF4444)
+                            reconnected -> Color(0xFF4ADE80)
+                            isActive -> Color(0xFFFBBF24)
+                            paused -> Color(0xFF94A3B8)
+                            else -> Color.Transparent
+                        },
+                        RoundedCornerShape(6.dp)
                     )
-                    Text("$rr RR", color = Color(0xFFFBBF24), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clip(CircleShape)
-                        .background(pieceColor)
-                        .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+            ) {
+                AvatarCircle4p(
+                    name = name,
+                    avatarUrl = avatar,
+                    modifier = Modifier.fillMaxSize()
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(fallbackColor, color = TextMutedColor, fontSize = 10.sp)
-                Spacer(modifier = Modifier.weight(1f))
-                Text("$score", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
             }
-            }
-            if (abandoned) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .offset(x = 22.dp)
+            ) {
+                val displayName = if (name.length > 10) name.take(10) + "..." else name
                 Text(
-                    "Ha abandonado",
-                    color = Color(0xFFFCA5A5),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)
+                    text = displayName,
+                    color = Color.Black,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            } else if (paused) {
                 Text(
-                    "Ha pausado",
-                    color = Color(0xFFCBD5E1),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)
-                )
-            } else if (reconnected) {
-                Text(
-                    "Se ha reconectado",
-                    color = Color(0xFF86EFAC),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp)
+                    text = when {
+                        abandoned -> "Abandonó"
+                        reconnected -> "Reconectó"
+                        paused -> "Pausado"
+                        else -> "$score pts"
+                    },
+                    color = when {
+                        abandoned -> Color(0xFF7F1D1D)
+                        reconnected -> Color(0xFF14532D)
+                        paused -> Color(0xFF64748B)
+                        else -> Color(0xFF5C3D11)
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -884,10 +1030,10 @@ private fun ConnectionBadge4p(connectionState: String) {
 }
 
 @Composable
-private fun AvatarCircle4p(name: String, avatarUrl: String?) {
+private fun AvatarCircle4p(name: String, avatarUrl: String?, modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier.size(34.dp),
-        shape = CircleShape,
+        modifier = modifier,
+        shape = RoundedCornerShape(6.dp),
         color = Color.White.copy(alpha = 0.1f)
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -962,6 +1108,8 @@ private fun GameCell4p(
     cellValue: String?,
     style: BoardPieceStyle4P,
     isValidMove: Boolean,
+    isSkillTile: Boolean = false,
+    isPendingTarget: Boolean = false,
     onClick: () -> Unit
 ) {
     // Lógica de "Pop" al aparecer
@@ -998,15 +1146,24 @@ private fun GameCell4p(
         modifier = modifier
             .fillMaxHeight()
             .border(0.5.dp, Color.Black.copy(alpha = 0.2f))
-            .then(if (isValidMove) Modifier.clickable { onClick() } else Modifier),
+            .then(if (isValidMove || isPendingTarget) Modifier.clickable { onClick() } else Modifier),
         contentAlignment = Alignment.Center
     ) {
+        if (isSkillTile && cellValue == null) {
+            Image(
+                painter = painterResource(id = R.drawable.ingame_casillainterrogante),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(0.72f),
+                contentScale = ContentScale.Fit
+            )
+        }
+
         if (isValidMove) {
             Box(
                 modifier = Modifier
                     .fillMaxSize(0.35f)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.8f))
+                    .background(Color.White.copy(alpha = 0.45f))
             )
         }
 
@@ -1023,6 +1180,14 @@ private fun GameCell4p(
                     .clip(CircleShape)
                     .background(colorFromCell(currentColor ?: "black", style))
                     .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+            )
+        }
+
+        if (isPendingTarget) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFFFD700).copy(alpha = 0.18f))
             )
         }
     }

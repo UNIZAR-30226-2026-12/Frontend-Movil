@@ -26,7 +26,16 @@ data class GameState(
     val abandoned_pieces: List<String> = emptyList(),
     val paused_pieces: List<String> = emptyList(),
     val paused_usernames: List<String> = emptyList(),
-    val username_by_piece: Map<String, String> = emptyMap()
+    val username_by_piece: Map<String, String> = emptyMap(),
+    val skill_tiles: List<List<Int>> = emptyList()
+)
+
+// Inventario de habilidades por color de ficha
+data class SkillsInventory(
+    val black: List<String> = emptyList(),
+    val white: List<String> = emptyList(),
+    val red: List<String> = emptyList(),
+    val blue: List<String> = emptyList()
 )
 
 data class WsMessage(
@@ -57,6 +66,9 @@ class GameWebSocket(
 
     private val _roomStatus = MutableStateFlow("waiting")
     val roomStatus: StateFlow<String> = _roomStatus.asStateFlow()
+
+    private val _skillsInventory = MutableStateFlow(SkillsInventory())
+    val skillsInventory: StateFlow<SkillsInventory> = _skillsInventory.asStateFlow()
 
     private fun JsonElement?.asStringOrNull(): String? {
         if (this == null || isJsonNull || !isJsonPrimitive || !asJsonPrimitive.isString) return null
@@ -230,6 +242,34 @@ class GameWebSocket(
                             ?.toMap()
                             ?: emptyMap()
 
+                        // Parsear inventario de habilidades
+                        val skillsInvObj = payload.objectOrNull("skills_inventory")
+                        if (skillsInvObj != null) {
+                            val blackSkills = skillsInvObj.arrayOrEmpty("black")
+                                ?.mapNotNull { it.asStringOrNull() } ?: emptyList()
+                            val whiteSkills = skillsInvObj.arrayOrEmpty("white")
+                                ?.mapNotNull { it.asStringOrNull() } ?: emptyList()
+                            val redSkills = skillsInvObj.arrayOrEmpty("red")
+                                ?.mapNotNull { it.asStringOrNull() } ?: emptyList()
+                            val blueSkills = skillsInvObj.arrayOrEmpty("blue")
+                                ?.mapNotNull { it.asStringOrNull() } ?: emptyList()
+                            _skillsInventory.value = SkillsInventory(
+                                black = blackSkills, 
+                                white = whiteSkills,
+                                red = redSkills,
+                                blue = blueSkills
+                            )
+                        }
+
+                        // Parsear casillas de habilidad (skill_tiles)
+                        val skillTiles = payload.arrayOrEmpty("skill_tiles")
+                            ?.mapNotNull { tile ->
+                                if (tile.isJsonArray) {
+                                    val arr = tile.asJsonArray
+                                    if (arr.size() >= 2) listOf(arr[0].asInt, arr[1].asInt) else null
+                                } else null
+                            } ?: emptyList()
+
                         _gameState.value = GameState(
                             board = board,
                             current_player = payload.get("current_player").asStringOrNull()?.lowercase(),
@@ -240,7 +280,8 @@ class GameWebSocket(
                             abandoned_pieces = abandonedPieces,
                             paused_pieces = pausedPieces,
                             paused_usernames = pausedUsernames,
-                            username_by_piece = usernameByPiece
+                            username_by_piece = usernameByPiece,
+                            skill_tiles = skillTiles
                         )
                     } catch (_: Exception) {}
                 }
@@ -304,6 +345,38 @@ class GameWebSocket(
 
     fun sendPause() {
         val json = gson.toJson(mapOf("action" to "pause"))
+        webSocket?.send(json)
+    }
+
+    fun sendSkillInstant(abilityType: String, targetPlayer: String, inventoryIndex: Int) {
+        val json = gson.toJson(mapOf(
+            "action" to "use_skill",
+            "type" to abilityType,
+            "target_player" to targetPlayer,
+            "inventory_index" to inventoryIndex
+        ))
+        webSocket?.send(json)
+    }
+
+    fun sendSkillTargeted(abilityType: String, row: Int, col: Int, targetPlayer: String, inventoryIndex: Int) {
+        val json = gson.toJson(mapOf(
+            "action" to "use_skill",
+            "type" to abilityType,
+            "row" to row,
+            "col" to col,
+            "target_player" to targetPlayer,
+            "inventory_index" to inventoryIndex
+        ))
+        webSocket?.send(json)
+    }
+
+    fun sendSkillGravity(direction: String, inventoryIndex: Int) {
+        val json = gson.toJson(mapOf(
+            "action" to "use_skill",
+            "type" to "gravity",
+            "direction" to direction,
+            "inventory_index" to inventoryIndex
+        ))
         webSocket?.send(json)
     }
 

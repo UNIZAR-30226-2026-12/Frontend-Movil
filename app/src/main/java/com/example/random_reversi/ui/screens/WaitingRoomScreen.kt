@@ -105,7 +105,7 @@ fun WaitingRoomScreen(
     val wsRoomPlayers by ws?.roomPlayers?.collectAsState() ?: remember { mutableStateOf(emptyList()) }
     val wsRoomStatus by ws?.roomStatus?.collectAsState() ?: remember { mutableStateOf("waiting") }
     val wsConnectionState by ws?.connectionState?.collectAsState() ?: remember { mutableStateOf("disconnected") }
-    val maxPlayers = if (gameMode == "1vs1") 2 else 4
+    val maxPlayers = if (normalizedGameMode == "1vs1") 2 else 4
     val localPlayerName = profile.username.ifBlank { "Jugador" }
 
     var players by remember { mutableStateOf<List<LobbyPlayerInfo>>(emptyList()) }
@@ -288,7 +288,7 @@ fun WaitingRoomScreen(
     LaunchedEffect(lobbyStatus) {
         if (lobbyStatus == "playing") {
             delay(900)
-            onNavigate("game-$gameMode/$gameId/$returnTo")
+            onNavigate("game-$normalizedGameMode/$gameId/$returnTo")
         }
     }
 
@@ -349,47 +349,99 @@ fun WaitingRoomScreen(
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                BoxWithConstraints(
-                    modifier = Modifier.offset(y = (-39).dp).fillMaxHeight().aspectRatio(408f/612f)
-                ) {
-                    val h = maxHeight
-                    val w = maxWidth
-                    Image(
-                        painter = painterResource(id = R.drawable.salamovil_cartelsalaespera1v1),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    if (errorMsg != null || inlineToast != null) {
-                        Text(
-                            text = errorMsg ?: inlineToast ?: "",
-                            color = Color.Red,
-                            fontSize = 12.sp,
-                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                if (normalizedGameMode == "1vs1") {
+                    // --- Tablero 1v1 ---
+                    BoxWithConstraints(
+                        modifier = Modifier.offset(y = (-39).dp).fillMaxHeight().aspectRatio(408f / 612f)
+                    ) {
+                        val h = maxHeight
+                        Image(
+                            painter = painterResource(id = R.drawable.salamovil_cartelsalaespera1v1),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
                         )
+                        if (errorMsg != null || inlineToast != null) {
+                            Text(
+                                text = errorMsg ?: inlineToast ?: "",
+                                color = Color.Red,
+                                fontSize = 12.sp,
+                                modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(h * 0.28f)
+                                .offset(y = h * 0.034f)
+                        ) {
+                            PlayerCardOverlay(players.getOrNull(0), 0, normalizedGameMode, profile.avatarUrl, historyByPlayer)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(h * 0.28f)
+                                .offset(y = h * 0.305f)
+                        ) {
+                            PlayerCardOverlay(players.getOrNull(1), 1, normalizedGameMode, profile.avatarUrl, historyByPlayer)
+                        }
                     }
-
-                    // Player 1 Card (Top Slot)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(h * 0.28f)
-                            .offset(y = h * 0.034f) 
+                } else {
+                    // --- Tablero 4P ---
+                    BoxWithConstraints(
+                        modifier = Modifier.offset(y = (-30).dp).fillMaxHeight().aspectRatio(893f / 1296f)
                     ) {
-                        PlayerCardOverlay(players.getOrNull(0), 0, normalizedGameMode, profile.avatarUrl, historyByPlayer)
+                        val h = maxHeight
+                        val w = maxWidth
+                        Image(
+                            painter = painterResource(id = R.drawable.salamovil_sala4p),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        if (errorMsg != null || inlineToast != null) {
+                            Text(
+                                text = errorMsg ?: inlineToast ?: "",
+                                color = Color.Red,
+                                fontSize = 11.sp,
+                                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
+                            )
+                        }
+                        // Top-Left (Player 0 - negro)
+                        Box(
+                            modifier = Modifier
+                                .width(w * 0.455f)
+                                .height(h * 0.285f)
+                                .offset(x = w * 0.022f, y = h * 0.205f)
+                        ) {
+                            PlayerCard4POverlay(players.getOrNull(0), 0, normalizedGameMode, historyByPlayer)
+                        }
+                        // Top-Right (Player 1 - blanco)
+                        Box(
+                            modifier = Modifier
+                                .width(w * 0.455f)
+                                .height(h * 0.285f)
+                                .offset(x = w * 0.523f, y = h * 0.205f)
+                        ) {
+                            PlayerCard4POverlay(players.getOrNull(1), 1, normalizedGameMode, historyByPlayer)
+                        }
+                        // Bottom-Left (Player 2 - rojo)
+                        Box(
+                            modifier = Modifier
+                                .width(w * 0.455f)
+                                .height(h * 0.285f)
+                                .offset(x = w * 0.022f, y = h * 0.505f)
+                        ) {
+                            PlayerCard4POverlay(players.getOrNull(2), 2, normalizedGameMode, historyByPlayer)
+                        }
+                        // Bottom-Right (Player 3 - azul)
+                        Box(
+                            modifier = Modifier
+                                .width(w * 0.455f)
+                                .height(h * 0.285f)
+                                .offset(x = w * 0.523f, y = h * 0.505f)
+                        ) {
+                            PlayerCard4POverlay(players.getOrNull(3), 3, normalizedGameMode, historyByPlayer)
+                        }
                     }
-
-                    // Player 2 Card (Bottom Slot)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(h * 0.28f)
-                            .offset(y = h * 0.305f)
-                    ) {
-                        PlayerCardOverlay(players.getOrNull(1), 1, normalizedGameMode, profile.avatarUrl, historyByPlayer)
-                    }
-                    // Cinta inferior "Prepara tu estrategia" eliminada
-
                 }
             }
 
@@ -431,7 +483,7 @@ fun WaitingRoomScreen(
                             scaleX = scale
                             scaleY = scale
                         }
-                        .clickable(enabled = isFull && gameId > 0 && !isUpdatingReady) {
+                        .clickable(enabled = gameId > 0 && !isUpdatingReady) {
                             scope.launch {
                                 val nextReady = !isLocalReady
                                 isUpdatingReady = true
@@ -507,7 +559,7 @@ private fun PlayerCardOverlay(
                 modifier = Modifier.offset(y = (-6).dp)
             ) {
                 Text("Esperando...", color = Color(0xFF4B5563), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("ELO ACTUAL:", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
+                Text("ELO\nACTUAL:", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
                 Text("--- RR", color = Color.DarkGray, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(y = (-16).dp))
             }
         }
@@ -561,7 +613,7 @@ private fun PlayerCardOverlay(
                     modifier = Modifier.offset(y = (-6).dp)
                 ) {
                     Text(player.username, color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("ELO ACTUAL:", color = Color.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
+                    Text("ELO\nACTUAL:", color = Color.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
                     Text("${player.rr} RR", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(y = (-16).dp))
                 }
             }
@@ -595,6 +647,340 @@ private fun PlayerCardOverlay(
                                 color = Color.DarkGray,
                                 style = Stroke(width = 3f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))),
                                 radius = 8.dp.toPx()
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+// Contenedor de posiciones absolutas de un slot 4P
+private data class SlotPos(
+    val avatarX: androidx.compose.ui.unit.Dp,
+    val avatarY: androidx.compose.ui.unit.Dp,
+    val avatarSz: androidx.compose.ui.unit.Dp, // + tamaño foto perfil
+    val nameX: androidx.compose.ui.unit.Dp,
+    val nameY: androidx.compose.ui.unit.Dp,
+    val eloLblX: androidx.compose.ui.unit.Dp,
+    val eloLblY: androidx.compose.ui.unit.Dp,
+    val eloValX: androidx.compose.ui.unit.Dp,
+    val eloValY: androidx.compose.ui.unit.Dp,
+    val streakX: androidx.compose.ui.unit.Dp,
+    val streakY: androidx.compose.ui.unit.Dp,
+    val streakGap: androidx.compose.ui.unit.Dp,
+    val streakSz: androidx.compose.ui.unit.Dp,
+    val streakRot: Float,    // rotación en grados de cada token de racha
+    val avatarRot: Float,    // rotación de la foto de perfil
+    val nameRot: Float,      // rotación del nombre de usuario
+    val eloRot: Float        // rotación de los textos de ELO y RR
+)
+
+@Composable
+private fun PlayerCard4POverlay(
+    player: LobbyPlayerInfo?,
+    index: Int,
+    gameMode: String,
+    historyByPlayer: Map<Int, List<String>>
+) {
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val h = maxHeight
+        val w = maxWidth
+
+        // ══════════════════════════════════════════════════════════════
+        // POSICIONES INDEPENDIENTES — cada slot es completamente autónomo
+        // Cambia cualquier valor de un slot sin que afecte a los demás
+        // Índices: 0 = Top-Left   1 = Top-Right
+        //          2 = Bottom-Left 3 = Bottom-Right
+        // ══════════════════════════════════════════════════════════════
+
+        val pos = when (index) {
+
+            // ── SLOT 0: Top-Left ───────────────────────────────────────
+            0 -> SlotPos(
+                avatarX   = 60.dp,   // + derecha
+                avatarY   = 63.dp,   // + abajo
+                avatarSz  = 40.dp,   // + tamaño
+                nameX     = 105.dp,   // + derecha
+                nameY     = 55.dp,    // + abajo
+                eloLblX   = 105.dp,   // + derecha
+                eloLblY   = 70.dp,   // + abajo
+                eloValX   = 107.dp,   // + derecha
+                eloValY   = 80.dp,   // + abajo
+                streakX   = 58.dp,   // + derecha
+                streakY   = h * 0.917f, // + abajo
+                streakGap = 13.87.dp,   // + espacio entre fichas
+                streakSz  = 13.dp,   // + tamaño
+                streakRot = -8f,     // + rota derecha
+                avatarRot = -8f,      // + rota derecha
+                nameRot   = -8f,      // + rota derecha
+                eloRot    = -8f       // + rota derecha
+            )
+
+            // ── SLOT 1: Top-Right ──────────────────────────────────────
+            1 -> SlotPos(
+                avatarX   = 6.dp,    // + derecha
+                avatarY   = 6.dp,    // + abajo
+                avatarSz  = 50.dp,
+                nameX     = 60.dp,   // + derecha
+                nameY     = 8.dp,    // + abajo
+                eloLblX   = 60.dp,   // + derecha
+                eloLblY   = 24.dp,   // + abajo
+                eloValX   = 60.dp,   // + derecha
+                eloValY   = 34.dp,   // + abajo
+                streakX   = 28.dp,   // + derecha
+                streakY   = h * 0.85f, // + abajo
+                streakGap = 15.dp,   // + espacio
+                streakSz  = 13.dp,   // + tamaño
+                streakRot = 0f,      // + rota derecha
+                avatarRot = 0f,
+                nameRot   = 0f,
+                eloRot    = 0f
+            )
+
+            // ── SLOT 2: Bottom-Left ────────────────────────────────────
+            2 -> SlotPos(
+                avatarX   = 6.dp,    // + derecha
+                avatarY   = 6.dp,    // + abajo
+                avatarSz  = 50.dp,
+                nameX     = 60.dp,   // + derecha
+                nameY     = 8.dp,    // + abajo
+                eloLblX   = 60.dp,   // + derecha
+                eloLblY   = 24.dp,   // + abajo
+                eloValX   = 60.dp,   // + derecha
+                eloValY   = 34.dp,   // + abajo
+                streakX   = 8.dp,    // + derecha
+                streakY   = h * 0.72f, // + abajo
+                streakGap = 17.dp,   // + espacio
+                streakSz  = 13.dp,   // + tamaño
+                streakRot = 0f,      // + rota derecha
+                avatarRot = 0f,
+                nameRot   = 0f,
+                eloRot    = 0f
+            )
+
+            // ── SLOT 3: Bottom-Right ───────────────────────────────────
+            else -> SlotPos(
+                avatarX   = 6.dp,    // + derecha
+                avatarY   = 6.dp,    // + abajo
+                avatarSz  = 50.dp,
+                nameX     = 60.dp,   // + derecha
+                nameY     = 8.dp,    // + abajo
+                eloLblX   = 60.dp,   // + derecha
+                eloLblY   = 24.dp,   // + abajo
+                eloValX   = 60.dp,   // + derecha
+                eloValY   = 34.dp,   // + abajo
+                streakX   = 8.dp,    // + derecha
+                streakY   = h * 0.72f, // + abajo
+                streakGap = 17.dp,   // + espacio
+                streakSz  = 13.dp,   // + tamaño
+                streakRot = 0f,      // + rota derecha
+                avatarRot = 0f,
+                nameRot   = 0f,
+                eloRot    = 0f
+            )
+        }
+
+        if (player == null) {
+            // ── SLOT VACÍO ──────────────────────────────────────────────
+
+            Box(
+                modifier = Modifier
+                    .size(pos.avatarSz)
+                    .offset(x = pos.avatarX, y = pos.avatarY)
+                    .graphicsLayer(rotationZ = pos.avatarRot)
+                    .background(Color(0xFFE5E5E5), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.interrogante),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(0.6f),
+                    contentScale = ContentScale.Fit,
+                    alpha = 0.5f
+                )
+            }
+
+            Text(
+                text = "Esperando ...",
+                color = Color(0xFF4B5563),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .offset(x = pos.nameX, y = pos.nameY)
+                    .graphicsLayer(rotationZ = pos.nameRot)
+            )
+
+            Box(
+                modifier = Modifier
+                    .offset(x = pos.streakX, y = pos.streakY)
+                    .height(pos.streakSz)
+                    .graphicsLayer(
+                        rotationZ = pos.streakRot,
+                        transformOrigin = TransformOrigin(0f, 0.5f)
+                    )
+            ) {
+                repeat(5) { i ->
+                    Canvas(
+                        modifier = Modifier
+                            .offset(x = pos.streakGap * i)
+                            .size(pos.streakSz)
+                    ) {
+                        drawCircle(
+                            color = Color.DarkGray,
+                            style = Stroke(
+                                width = 2f,
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
+                            ),
+                            radius = 5.dp.toPx()
+                        )
+                    }
+                }
+            }
+
+        } else {
+            // ── SLOT CON JUGADOR ────────────────────────────────────────
+            val historyPreview = historyByPlayer[player.id] ?: listOf("-", "-", "-", "-", "-")
+
+            // Avatar
+            Box(
+                modifier = Modifier
+                    .size(pos.avatarSz)
+                    .offset(x = pos.avatarX, y = pos.avatarY)
+                    .graphicsLayer(rotationZ = pos.avatarRot)
+            ) {
+                val presetRes = AvatarPresets.drawableForId(player.avatar_url)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (player.is_ready)
+                                Modifier.border(2.dp, Color(0xFF4ADE80), RoundedCornerShape(10.dp))
+                            else Modifier
+                        ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    if (presetRes != null) {
+                        Image(
+                            painter = painterResource(id = presetRes),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop
+                        )
+                    } else if (!player.avatar_url.isNullOrBlank()) {
+                        AsyncImage(
+                            model = player.avatar_url,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.LightGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                player.username.first().toString().uppercase(),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+                if (player.is_ready) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(16.dp)
+                            .background(Color(0xFF4ADE80), CircleShape)
+                            .border(1.5.dp, Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                }
+            }
+
+            // Nombre de usuario
+            Text(
+                text = player.username,
+                color = Color.Black,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .offset(x = pos.nameX, y = pos.nameY)
+                    .graphicsLayer(rotationZ = pos.nameRot)
+                    .widthIn(max = w - pos.nameX - 4.dp)
+            )
+
+            // Etiqueta ELO ACTUAL
+            Text(
+                text = "ELO\nACTUAL:",
+                color = Color.DarkGray,
+                fontSize = 7.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Start,
+                lineHeight = 8.sp,
+                modifier = Modifier
+                    .offset(x = pos.eloLblX, y = pos.eloLblY)
+                    .graphicsLayer(rotationZ = pos.eloRot)
+            )
+
+            // Valor RR
+            Text(
+                text = "${player.rr} RR",
+                color = Color.Black,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .offset(x = pos.eloValX, y = pos.eloValY)
+                    .graphicsLayer(rotationZ = pos.eloRot)
+            )
+
+            // Fichas de racha
+            Box(
+                modifier = Modifier
+                    .offset(x = pos.streakX, y = pos.streakY)
+                    .height(pos.streakSz)
+                    .graphicsLayer(
+                        rotationZ = pos.streakRot,
+                        transformOrigin = TransformOrigin(0f, 0.5f)
+                    )
+            ) {
+                historyPreview.take(5).forEachIndexed { i, symbol ->
+                    val xOff = pos.streakGap * i
+                    val imgRes = getHistoryTokenImage(symbol, index, gameMode)
+                    if (imgRes != null) {
+                        Image(
+                            painter = painterResource(id = imgRes),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .offset(x = xOff)
+                                .size(pos.streakSz)
+                        )
+                    } else {
+                        Canvas(
+                            modifier = Modifier
+                                .offset(x = xOff)
+                                .size(pos.streakSz)
+                        ) {
+                            drawCircle(
+                                color = Color.DarkGray,
+                                style = Stroke(
+                                    width = 2f,
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
+                                ),
+                                radius = 5.dp.toPx()
                             )
                         }
                     }

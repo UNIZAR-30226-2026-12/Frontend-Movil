@@ -86,14 +86,14 @@ fun GameModeModal(
                         title = "1 vs 1",
                         description = "Duelo de 2 jugadores",
                         is16x16 = false,
-                        onClick = { onSelectMode("1vs1") }
+                        onClick = { onSelectMode("1vs1_skills") }
                     )
 
                     GameModeCard(
                         title = "1 vs 1 vs 1 vs 1",
                         description = "Todos contra todos de 4 jugadores",
                         is16x16 = true,
-                        onClick = { onSelectMode("1vs1vs1vs1") }
+                        onClick = { onSelectMode("1vs1vs1vs1_skills") }
                     )
                 }
             }
