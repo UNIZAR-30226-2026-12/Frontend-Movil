@@ -174,7 +174,7 @@ data class PausedGameInfo(
     @SerializedName(value = "game_id", alternate = ["lobby_id"])
     val game_id: Int,
     @SerializedName(value = "mode", alternate = ["gameMode", "game_mode"])
-    val mode: String,
+    val mode: String = "",
     val participants: List<String> = emptyList(),
     @SerializedName(value = "paused_by", alternate = ["pausedBy"])
     val paused_by: List<String> = emptyList(),
@@ -183,11 +183,11 @@ data class PausedGameInfo(
 )
 
 data class SocialPanelResponse(
-    val friends: List<FriendInfo>,
+    val friends: List<FriendInfo> = emptyList(),
     @SerializedName(value = "requests", alternate = ["pending_requests"])
-    val requests: List<FriendInfo>,
+    val requests: List<FriendInfo> = emptyList(),
     @SerializedName(value = "gameRequests", alternate = ["game_invitations"])
-    val gameRequests: List<GameInviteInfo>,
+    val gameRequests: List<GameInviteInfo> = emptyList(),
     @SerializedName(value = "pausedGames", alternate = ["paused_games"])
     val pausedGames: List<PausedGameInfo> = emptyList()
 )

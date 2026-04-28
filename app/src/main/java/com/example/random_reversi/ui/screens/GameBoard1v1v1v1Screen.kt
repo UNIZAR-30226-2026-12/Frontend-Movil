@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
@@ -30,6 +29,8 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.random_reversi.ui.components.AppModal
+import com.example.random_reversi.ui.theme.TextColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +56,7 @@ import com.example.random_reversi.R
 import com.example.random_reversi.data.UserRepository
 import com.example.random_reversi.data.UserResult
 import com.example.random_reversi.data.remote.GameWebSocket
-import com.example.random_reversi.ui.theme.BgColor
+import com.example.random_reversi.ui.theme.AccentGreen
 import com.example.random_reversi.ui.theme.BorderColor
 import com.example.random_reversi.ui.theme.PrimaryColor
 import com.example.random_reversi.ui.theme.SurfaceColor
@@ -666,86 +667,88 @@ fun GameBoard1v1v1v1Screen(
             }
         }
 
-        if (showLeaveConfirm) {
-            AlertDialog(
-                onDismissRequest = { showLeaveConfirm = false },
-                containerColor = BgColor,
-                title = {
-                    Text(
-                        "Abandonar partida",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                text = {
-                    Text(
-                        if (returnTo == "friends" && hasOtherPausedPlayer && !localIsPaused)
-                            "Como hay un jugador en pausa, si abandonas ahora no perderás RR y la partida quedará invalidada."
-                        else
-                            "Si abandonas la partida, se te registrará automáticamente como 4º puesto.",
-                        color = TextMutedColor
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                ws?.sendSurrender()
-                                delay(120)
-                                showLeaveConfirm = false
-                                ws?.disconnect()
-                                onNavigate(returnTo)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF87171))
-                    ) {
-                        Text("Abandonar partida")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showLeaveConfirm = false }) {
-                        Text("Seguir jugando", color = TextMutedColor)
-                    }
-                }
+        AppModal(
+            isOpen = showLeaveConfirm,
+            onClose = { showLeaveConfirm = false },
+            maxWidth = 360.dp,
+            showCloseButton = false
+        ) {
+            Text(
+                "Abandonar partida",
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                if (returnTo == "friends" && hasOtherPausedPlayer && !localIsPaused)
+                    "Como hay un jugador en pausa, si abandonas ahora no perderás RR y la partida quedará invalidada."
+                else
+                    "Si abandonas la partida, se te registrará automáticamente como 4º puesto.",
+                color = TextMutedColor,
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = {
+                    scope.launch {
+                        ws?.sendSurrender()
+                        delay(120)
+                        showLeaveConfirm = false
+                        ws?.disconnect()
+                        onNavigate(returnTo)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+            ) {
+                Text("Abandonar partida", color = Color.White)
+            }
+            TextButton(
+                onClick = { showLeaveConfirm = false },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Seguir jugando", color = TextMutedColor)
+            }
         }
 
-        if (showPauseConfirm) {
-            AlertDialog(
-                onDismissRequest = { showPauseConfirm = false },
-                containerColor = BgColor,
-                title = {
-                    Text(
-                        "Pausar partida",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                text = {
-                    Text(
-                        "Podrás reanudar esta partida después desde la pestaña de amigos. Mientras tanto, los rivales quedarán esperando a que vuelvas.",
-                        color = TextMutedColor
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            ws?.sendPause()
-                            showPauseConfirm = false
-                            ws?.disconnect()
-                            onNavigate("friends")
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF64748B))
-                    ) {
-                        Text("Pausar y salir")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showPauseConfirm = false }) {
-                        Text("Cancelar", color = TextMutedColor)
-                    }
-                }
+        AppModal(
+            isOpen = showPauseConfirm,
+            onClose = { showPauseConfirm = false },
+            maxWidth = 360.dp,
+            showCloseButton = false
+        ) {
+            Text(
+                "Pausar partida",
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Podrás reanudar esta partida después desde la pestaña de amigos. Mientras tanto, los rivales quedarán esperando a que vuelvas.",
+                color = TextMutedColor,
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = {
+                    ws?.sendPause()
+                    showPauseConfirm = false
+                    ws?.disconnect()
+                    onNavigate("friends")
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+            ) {
+                Text("Pausar y salir", color = Color.White)
+            }
+            TextButton(
+                onClick = { showPauseConfirm = false },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cancelar", color = TextMutedColor)
+            }
         }
 
         if (showChat) {
@@ -783,41 +786,37 @@ fun GameBoard1v1v1v1Screen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.75f))
-                    .clickable(enabled = false) {}, // Intercepta clicks traseros
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .clickable(enabled = false) {},
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(0.85f),
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.88f)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(12.dp),
                     color = SurfaceColor,
-                    border = BorderStroke(1.dp, if (myRank == 1) Color(0xFF4ADE80) else BorderColor)
+                    border = BorderStroke(1.dp, BorderColor)
                 ) {
                     Column(
                         modifier = Modifier.padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = if (myRank == 1) "🏆" else if (myRank == 2) "🥈" else "💔",
-                            fontSize = 64.sp
-                        )
-                        Text(
                             text = if (myRank == 1) "¡Victoria!" else "Ganador: $winnerText",
-                            color = Color.White,
+                            color = TextColor,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
 
                         Surface(
-                            color = (if (rrDelta >= 0) Color(0xFF4ADE80) else Color(0xFFF87171)).copy(
-                                alpha = 0.15f
-                            ),
-                            shape = RoundedCornerShape(12.dp)
+                            color = (if (rrDelta >= 0) AccentGreen else PrimaryColor).copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(
                                 text = "${if (rrDelta >= 0) "+" else ""}$rrDelta RR",
-                                color = if (rrDelta >= 0) Color(0xFF4ADE80) else Color(0xFFF87171),
+                                color = if (rrDelta >= 0) AccentGreen else PrimaryColor,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Black
@@ -827,11 +826,8 @@ fun GameBoard1v1v1v1Screen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(
-                                    Color.Black.copy(alpha = 0.2f),
-                                    RoundedCornerShape(12.dp)
-                                )
-                                .padding(16.dp),
+                                .background(BorderColor.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                                .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             ranking.forEach { row ->
@@ -847,12 +843,12 @@ fun GameBoard1v1v1v1Screen(
                                 ) {
                                     Text(
                                         "${row.rank}º - $name",
-                                        color = if (row.piece == effectiveMyPiece) Color.White else TextMutedColor,
+                                        color = if (row.piece == effectiveMyPiece) TextColor else TextMutedColor,
                                         fontWeight = if (row.piece == effectiveMyPiece) FontWeight.Bold else FontWeight.Normal
                                     )
                                     Text(
                                         right,
-                                        color = if (row.piece == effectiveMyPiece) Color.White else TextMutedColor
+                                        color = if (row.piece == effectiveMyPiece) TextColor else TextMutedColor
                                     )
                                 }
                             }
@@ -865,11 +861,12 @@ fun GameBoard1v1v1v1Screen(
                             },
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
-                            shape = RoundedCornerShape(14.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(
                                 text = if (returnTo == "online-game") "Volver a Jugar Online" else "Volver a amigos",
-                                fontSize = 16.sp,
+                                color = Color.White,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }

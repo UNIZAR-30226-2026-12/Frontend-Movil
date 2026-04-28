@@ -118,15 +118,11 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
     LaunchedEffect(Unit) {
         NavigationMessages.consumeFriendsToast()?.let { toastMessage = it }
         loadPanel()
-    }
-
-    LaunchedEffect(Unit) {
         while (true) {
-            delay(3000) // Poll every 3 seconds for "real-time" feel
+            delay(3000)
             when (val result = FriendsRepository.getSocialPanel()) {
                 is UserResult.Success -> {
                     panel = result.data
-                    // Update chatFriend if it's open to reflect latest status/unread
                     chatFriend?.let { current ->
                         result.data.friends.find { it.id == current.id }?.let { updated ->
                             chatFriend = updated
@@ -602,7 +598,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                         PausedGameRow(
                                             game = paused,
                                             onResume = {
-                                                val mode = when (paused.mode.lowercase()) {
+                                                val mode = when (paused.mode.lowercase().ifEmpty { "1vs1" }) {
                                                     "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
                                                     else -> "1vs1"
                                                 }
