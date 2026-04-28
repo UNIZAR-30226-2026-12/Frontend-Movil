@@ -559,7 +559,7 @@ private fun PlayerCardOverlay(
                 modifier = Modifier.offset(y = (-6).dp)
             ) {
                 Text("Esperando...", color = Color(0xFF4B5563), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("ELO\nACTUAL:", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
+                Text("ELO ACTUAL:", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
                 Text("--- RR", color = Color.DarkGray, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(y = (-16).dp))
             }
         }
@@ -613,7 +613,7 @@ private fun PlayerCardOverlay(
                     modifier = Modifier.offset(y = (-6).dp)
                 ) {
                     Text(player.username, color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("ELO\nACTUAL:", color = Color.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
+                    Text("ELO ACTUAL:", color = Color.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.offset(y = (-8).dp))
                     Text("${player.rr} RR", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(y = (-16).dp))
                 }
             }
@@ -703,12 +703,12 @@ private fun PlayerCard4POverlay(
             0 -> SlotPos(
                 avatarX   = 60.dp,   // + derecha
                 avatarY   = 63.dp,   // + abajo
-                avatarSz  = 40.dp,   // + tamaño
-                nameX     = 105.dp,   // + derecha
+                avatarSz  = 32.dp,   // + tamaño
+                nameX     = 100.dp,   // + derecha
                 nameY     = 55.dp,    // + abajo
-                eloLblX   = 105.dp,   // + derecha
+                eloLblX   = 100.dp,   // + derecha
                 eloLblY   = 70.dp,   // + abajo
-                eloValX   = 107.dp,   // + derecha
+                eloValX   = 102.dp,   // + derecha
                 eloValY   = 80.dp,   // + abajo
                 streakX   = 58.dp,   // + derecha
                 streakY   = h * 0.917f, // + abajo
@@ -722,65 +722,65 @@ private fun PlayerCard4POverlay(
 
             // ── SLOT 1: Top-Right ──────────────────────────────────────
             1 -> SlotPos(
-                avatarX   = 6.dp,    // + derecha
-                avatarY   = 6.dp,    // + abajo
-                avatarSz  = 50.dp,
-                nameX     = 60.dp,   // + derecha
-                nameY     = 8.dp,    // + abajo
-                eloLblX   = 60.dp,   // + derecha
-                eloLblY   = 24.dp,   // + abajo
-                eloValX   = 60.dp,   // + derecha
-                eloValY   = 34.dp,   // + abajo
-                streakX   = 28.dp,   // + derecha
+                avatarX   = 28.dp,    // + derecha
+                avatarY   = 63.dp,    // + abajo
+                avatarSz  = 32.dp,
+                nameX     = 65.dp,   // + derecha
+                nameY     = 60.dp,    // + abajo
+                eloLblX   = 63.dp,   // + derecha
+                eloLblY   = 80.dp,   // + abajo
+                eloValX   = 61.dp,   // + derecha
+                eloValY   = 90.dp,   // + abajo
+                streakX   = 44.6.dp,   // + derecha
                 streakY   = h * 0.85f, // + abajo
-                streakGap = 15.dp,   // + espacio
+                streakGap = 13.87.dp,   // + espacio
                 streakSz  = 13.dp,   // + tamaño
-                streakRot = 0f,      // + rota derecha
-                avatarRot = 0f,
-                nameRot   = 0f,
-                eloRot    = 0f
+                streakRot = 8f,      // + rota derecha
+                avatarRot = 8f,
+                nameRot   = 8f,
+                eloRot    = 8f
             )
 
             // ── SLOT 2: Bottom-Left ────────────────────────────────────
             2 -> SlotPos(
-                avatarX   = 6.dp,    // + derecha
-                avatarY   = 6.dp,    // + abajo
-                avatarSz  = 50.dp,
-                nameX     = 60.dp,   // + derecha
-                nameY     = 8.dp,    // + abajo
-                eloLblX   = 60.dp,   // + derecha
-                eloLblY   = 24.dp,   // + abajo
-                eloValX   = 60.dp,   // + derecha
-                eloValY   = 34.dp,   // + abajo
-                streakX   = 8.dp,    // + derecha
-                streakY   = h * 0.72f, // + abajo
-                streakGap = 17.dp,   // + espacio
+                avatarX   = 65.dp,    // + derecha
+                avatarY   = 30.dp,    // + abajo
+                avatarSz  = 32.dp,
+                nameX     = 100.dp,   // + derecha
+                nameY     = 20.dp,    // + abajo
+                eloLblX   = 100.dp,   // + derecha
+                eloLblY   = 35.dp,   // + abajo
+                eloValX   = 102.dp,   // + derecha
+                eloValY   = 45.dp,   // + abajo
+                streakX   = 58.6.dp,    // + derecha
+                streakY   = h * 0.62f, // + abajo
+                streakGap = 13.87.dp,   // + espacio
                 streakSz  = 13.dp,   // + tamaño
-                streakRot = 0f,      // + rota derecha
-                avatarRot = 0f,
-                nameRot   = 0f,
-                eloRot    = 0f
+                streakRot = -8f,      // + rota derecha
+                avatarRot = -8f,
+                nameRot   = -8f,
+                eloRot    = -8f
             )
 
             // ── SLOT 3: Bottom-Right ───────────────────────────────────
             else -> SlotPos(
-                avatarX   = 6.dp,    // + derecha
-                avatarY   = 6.dp,    // + abajo
-                avatarSz  = 50.dp,
-                nameX     = 60.dp,   // + derecha
-                nameY     = 8.dp,    // + abajo
-                eloLblX   = 60.dp,   // + derecha
-                eloLblY   = 24.dp,   // + abajo
-                eloValX   = 60.dp,   // + derecha
-                eloValY   = 34.dp,   // + abajo
-                streakX   = 8.dp,    // + derecha
-                streakY   = h * 0.72f, // + abajo
-                streakGap = 17.dp,   // + espacio
+                avatarX   = 24.dp,    // + derecha
+                avatarY   = 24.dp,    // + abajo
+                avatarSz  = 32.dp,
+                nameX     = 65.dp,   // + derecha
+                nameY     = 24.dp,    // + abajo
+                eloLblX   = 63.dp,   // + derecha
+                eloLblY   = 39.dp,   // + abajo
+                eloValX   = 61.dp,   // + derecha
+                eloValY   = 49.dp,   // + abajo
+                streakX   = 44.6.dp,    // + derecha
+                streakY   = h * 0.62f, // + abajo
+                streakGap = 13.87.dp,   // + espacio
                 streakSz  = 13.dp,   // + tamaño
-                streakRot = 0f,      // + rota derecha
-                avatarRot = 0f,
-                nameRot   = 0f,
-                eloRot    = 0f
+                streakRot = 8f,      // + rota derecha
+                avatarRot = 8f,
+                nameRot   = 8f,
+                eloRot    = 8f
             )
         }
 
@@ -807,7 +807,7 @@ private fun PlayerCard4POverlay(
             Text(
                 text = "Esperando ...",
                 color = Color(0xFF4B5563),
-                fontSize = 10.sp,
+                fontSize = 7.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .offset(x = pos.nameX, y = pos.nameY)
