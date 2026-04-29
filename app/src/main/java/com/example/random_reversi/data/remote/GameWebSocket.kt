@@ -27,7 +27,8 @@ data class GameState(
     val paused_pieces: List<String> = emptyList(),
     val paused_usernames: List<String> = emptyList(),
     val username_by_piece: Map<String, String> = emptyMap(),
-    val skill_tiles: List<List<Int>> = emptyList()
+    val skill_tiles: List<List<Int>> = emptyList(),
+    val fixed_pieces: List<List<Int>> = emptyList()
 )
 
 // Inventario de habilidades por color de ficha
@@ -270,6 +271,15 @@ class GameWebSocket(
                                 } else null
                             } ?: emptyList()
 
+                        // Parsear fichas fijas (fixed_pieces)
+                        val fixedPieces = payload.arrayOrEmpty("fixed_pieces")
+                            ?.mapNotNull { tile ->
+                                if (tile.isJsonArray) {
+                                    val arr = tile.asJsonArray
+                                    if (arr.size() >= 2) listOf(arr[0].asInt, arr[1].asInt) else null
+                                } else null
+                            } ?: emptyList()
+
                         _gameState.value = GameState(
                             board = board,
                             current_player = payload.get("current_player").asStringOrNull()?.lowercase(),
@@ -281,7 +291,8 @@ class GameWebSocket(
                             paused_pieces = pausedPieces,
                             paused_usernames = pausedUsernames,
                             username_by_piece = usernameByPiece,
-                            skill_tiles = skillTiles
+                            skill_tiles = skillTiles,
+                            fixed_pieces = fixedPieces
                         )
                     } catch (_: Exception) {}
                 }

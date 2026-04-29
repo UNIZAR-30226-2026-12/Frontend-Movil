@@ -132,12 +132,13 @@ fun GameBoard1v1Screen(
     var previousPausedPieces by remember { mutableStateOf(emptySet<String>()) }
     var reconnectedPieces by remember { mutableStateOf(emptySet<String>()) }
 
-    // ── Estado de habilidades ─────────────────────────────────────────
+    // ── Estado de habilidades ───────────────────────────────────────────────────
     val skillsInventory by ws?.skillsInventory?.collectAsState()
         ?: remember { mutableStateOf(SkillsInventory()) }
     var pendingAbility by remember { mutableStateOf<PendingAbilityMobile?>(null) }
     var selectingGravityFor by remember { mutableStateOf<Int?>(null) } // inventoryIndex
     var showGravityMenu by remember { mutableStateOf(false) }
+    var skillErrorMessage by remember { mutableStateOf<String?>(null) }
 
     val parsedPlayers = remember(roomPlayersRaw) {
         roomPlayersRaw.mapNotNull { raw ->
@@ -279,7 +280,13 @@ fun GameBoard1v1Screen(
             isMyTurn -> "Tu turno"
             else -> "Turno del rival"
         }
-        val colorLabel = if (effectiveMyPiece == "black") myPieceName else opponentPieceName
+        // Nombre e ícono del jugador cuyo turno es ahora
+        val currentTurnName = if (isMyTurn || gameOver) myDisplayName else opponentName
+        val currentTurnPieceName = when (gameState.current_player) {
+            "black" -> duelStyle.sideAName
+            "white" -> duelStyle.sideBName
+            else -> if (isMyTurn) myPieceName else opponentPieceName
+        }
 
         // ── Información de Turno (Independiente / Flotante) ──────────
         Box(
@@ -305,7 +312,7 @@ fun GameBoard1v1Screen(
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
-                    text = "$myDisplayName ($colorLabel)",
+                    text = "$currentTurnName ($currentTurnPieceName)",
                     color = Color.Black,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -407,17 +414,27 @@ fun GameBoard1v1Screen(
                                         val cellValue = gameState.board.getOrNull(row)?.getOrNull(col)
                                         val isValidMove = gameState.valid_moves.any { it.size >= 2 && it[0] == row && it[1] == col }
                                         val isSkillTile = gameState.skill_tiles.any { it.size >= 2 && it[0] == row && it[1] == col }
+                                        val isFixed = gameState.fixed_pieces.any { it.size >= 2 && it[0] == row && it[1] == col }
                                         val canPlayHere = isMyTurn && isValidMove && !gameOver && pendingAbility == null
-                                        val pendingTargetClick = pendingAbility != null && !gameOver && isMyTurn
+                                        // Filtro de objetivo por tipo de habilidad
+                                        val isValidPendingTarget = pendingAbility != null && !gameOver && isMyTurn &&
+                                            when (pendingAbility!!.abilityId) {
+                                                "place_free"  -> cellValue == null
+                                                "flip_rival"  -> cellValue != null && cellValue != effectiveMyPiece
+                                                "fix_piece"   -> cellValue != null && cellValue == effectiveMyPiece
+                                                "unfix_piece" -> cellValue != null && cellValue != effectiveMyPiece && isFixed
+                                                else          -> true
+                                            }
                                         GameCell1v1(
                                             modifier = Modifier.weight(1f),
                                             cellValue = cellValue,
                                             isValidMove = canPlayHere,
                                             isSkillTile = isSkillTile,
-                                            isPendingTarget = pendingTargetClick && !canPlayHere,
+                                            isFixed = isFixed,
+                                            isPendingTarget = isValidPendingTarget && !canPlayHere,
                                             style = duelStyle,
                                             onClick = {
-                                                if (pendingTargetClick) {
+                                                if (isValidPendingTarget && !canPlayHere) {
                                                     val pa = pendingAbility!!
                                                     val opponent = if (effectiveMyPiece == "black") "white" else "black"
                                                     ws?.sendSkillTargeted(pa.abilityId, row, col, opponent, pa.inventoryIndex)
@@ -499,6 +516,7 @@ fun GameBoard1v1Screen(
                 // Habilidades
                 val myInventory = if (effectiveMyPiece == "black") skillsInventory.black else skillsInventory.white
                 val opponentColor = if (effectiveMyPiece == "black") "white" else "black"
+                val opponentInventory = if (opponentColor == "black") skillsInventory.black else skillsInventory.white
 
                 Column(
                     modifier = Modifier
@@ -562,6 +580,26 @@ fun GameBoard1v1Screen(
                                                 canUse = canUse,
                                                 onClick = {
                                                     if (!canUse) return@SkillButton
+                                                    // Validar condiciones de uso
+                                                    val rivalHasFixed = gameState.fixed_pieces.any { cell ->
+                                                        val pieceAt = gameState.board.getOrNull(cell[0])?.getOrNull(cell[1])
+                                                        pieceAt != null && pieceAt != effectiveMyPiece
+                                                    }
+                                                    val errorMsg = when (abilityId) {
+                                                        "steal_skill"    -> if (opponentInventory.isEmpty()) "El rival no tiene habilidades que robar." else null
+                                                        "give_skill"     -> if (myInventory.size < 2) "No tienes ninguna otra habilidad para dar al rival." else null
+                                                        "exchange_skill" -> when {
+                                                            myInventory.size < 2     -> "No tienes ninguna otra habilidad para intercambiar."
+                                                            opponentInventory.isEmpty() -> "El rival no tiene habilidades para intercambiar."
+                                                            else                        -> null
+                                                        }
+                                                        "unfix_piece"    -> if (!rivalHasFixed) "No hay fichas fijas del rival en el tablero." else null
+                                                        else -> null
+                                                    }
+                                                    if (errorMsg != null) {
+                                                        skillErrorMessage = errorMsg
+                                                        return@SkillButton
+                                                    }
                                                     if (abilityId == "gravity") {
                                                         selectingGravityFor = idx
                                                         showGravityMenu = true
@@ -671,6 +709,35 @@ fun GameBoard1v1Screen(
                 onClose = { showChat = false },
                 onSend = { message -> ws?.sendChat(message) }
             )
+        }
+
+        // Modal: habilidad no disponible
+        AppModal(
+            isOpen = skillErrorMessage != null,
+            onClose = { skillErrorMessage = null },
+            maxWidth = 320.dp,
+            showCloseButton = false
+        ) {
+            Text(
+                text = "⛔ Habilidad no disponible",
+                color = TextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = skillErrorMessage ?: "",
+                color = TextMutedColor,
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = { skillErrorMessage = null },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+            ) {
+                Text("Entendido", color = Color.White)
+            }
         }
 
         // PANTALLA DE VICTORIA
@@ -1017,6 +1084,7 @@ private fun GameCell1v1(
     cellValue: String?,
     isValidMove: Boolean,
     isSkillTile: Boolean = false,
+    isFixed: Boolean = false,
     isPendingTarget: Boolean = false,
     style: BoardPieceStyle1v1,
     onClick: () -> Unit
@@ -1038,6 +1106,7 @@ private fun GameCell1v1(
     var hasAppeared by remember { mutableStateOf(cellValue != null) }
     LaunchedEffect(cellValue) {
         if (cellValue != null) hasAppeared = true
+        else hasAppeared = false
     }
     val scale by animateFloatAsState(
         targetValue = if (hasAppeared) 1f else 0f,
@@ -1088,8 +1157,36 @@ private fun GameCell1v1(
                     }
                     .clip(CircleShape)
                     .background(pieceColor)
-                    .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                    .border(
+                        width = if (isFixed) 2.dp else 1.dp,
+                        color = if (isFixed) Color(0xFFFFD700) else Color.White.copy(alpha = 0.25f),
+                        shape = CircleShape
+                    )
             )
+        }
+
+        // 3b. Badge de ficha fija (candado) — esquina inferior derecha
+        if (isFixed && cellValue != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(2.dp),
+                contentAlignment = Alignment.BottomEnd
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(11.dp)
+                        .background(Color(0xFFFFD700), CircleShape)
+                        .border(0.5.dp, Color(0xFFB8860B), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🔒",
+                        fontSize = 6.sp,
+                        lineHeight = 6.sp
+                    )
+                }
+            }
         }
 
         // 4. Highlight de objetivo pendiente — semitransparente, encima de todo
