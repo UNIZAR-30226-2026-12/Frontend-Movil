@@ -117,6 +117,11 @@ fun GameBoard1v1v1v1Screen(
     var selectingGravityFor by remember { mutableStateOf<Int?>(null) } // inventoryIndex
     var showGravityMenu by remember { mutableStateOf(false) }
     var skillErrorMessage by remember { mutableStateOf<String?>(null) }
+    var skillUsedPopup by remember { mutableStateOf<com.example.random_reversi.data.remote.SkillUsedEvent?>(null) }
+    var previousMyInventory by remember { mutableStateOf<List<String>>(emptyList()) }
+    var previousOpponentInventories by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
+    val skillUsedEventFromWs by ws?.skillUsedEvent?.collectAsState()
+        ?: remember { mutableStateOf<com.example.random_reversi.data.remote.SkillUsedEvent?>(null) }
 
     val players = remember(roomPlayersRaw, myUsername, myElo, myAvatar) {
         val parsed = roomPlayersRaw.mapIndexedNotNull { index, raw ->
@@ -240,6 +245,59 @@ fun GameBoard1v1v1v1Screen(
         if (abandonNotice == null) return@LaunchedEffect
         delay(2200)
         abandonNotice = null
+    }
+
+    // ── Detectar uso de habilidad por cambio de inventario (4P) ────────────────
+    LaunchedEffect(skillsInventory, myUsername) {
+        fun invOf(piece: String): List<String> = when (piece) {
+            "black" -> skillsInventory.black
+            "white" -> skillsInventory.white
+            "red"   -> skillsInventory.red
+            "blue"  -> skillsInventory.blue
+            else    -> emptyList()
+        }
+        val myPiece = effectiveMyPiece ?: return@LaunchedEffect
+        val myInv = invOf(myPiece)
+        val opponentPieces = PIECE_ORDER_4P.filter { it != myPiece }
+
+        // Detectar que YO usé una habilidad
+        if (previousMyInventory.isNotEmpty() && myInv.size < previousMyInventory.size) {
+            val usedSkill = previousMyInventory.firstOrNull { !myInv.contains(it) }
+            if (usedSkill != null) {
+                skillUsedPopup = com.example.random_reversi.data.remote.SkillUsedEvent(usedSkill, myUsername, true)
+            }
+        }
+        previousMyInventory = myInv
+
+        // Detectar que algún rival usó una habilidad
+        opponentPieces.forEach { piece ->
+            val prevInv = previousOpponentInventories[piece] ?: emptyList()
+            val currInv = invOf(piece)
+            if (prevInv.isNotEmpty() && currInv.size < prevInv.size) {
+                val usedSkill = prevInv.firstOrNull { !currInv.contains(it) }
+                if (usedSkill != null) {
+                    val rivalName = gameState.username_by_piece[piece]
+                        ?: playerByPiece[piece]?.username ?: piece
+                    skillUsedPopup = com.example.random_reversi.data.remote.SkillUsedEvent(usedSkill, rivalName, false)
+                }
+            }
+        }
+        previousOpponentInventories = opponentPieces.associateWith { invOf(it) }
+    }
+
+    // ── Detectar evento skill_used del servidor ─────────────────────────────────
+    LaunchedEffect(skillUsedEventFromWs) {
+        skillUsedEventFromWs?.let { event ->
+            skillUsedPopup = event.copy(isMine = event.username == myUsername)
+        }
+    }
+
+    // ── Auto-ocultar popup tras 2500ms ──────────────────────────────────────────
+    LaunchedEffect(skillUsedPopup) {
+        if (skillUsedPopup != null) {
+            delay(2500)
+            skillUsedPopup = null
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -798,6 +856,11 @@ fun GameBoard1v1v1v1Screen(
                 onClose = { showChat = false },
                 onSend = { message -> ws?.sendChat(message) }
             )
+        }
+
+        // ── Pop-up de habilidad usada ────────────────────────────────────────────
+        skillUsedPopup?.let { event ->
+            SkillUsedPopup(event = event, myUsername = myUsername)
         }
 
         // Modal: habilidad no disponible

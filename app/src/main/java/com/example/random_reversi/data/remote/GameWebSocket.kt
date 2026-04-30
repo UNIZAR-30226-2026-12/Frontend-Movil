@@ -39,6 +39,12 @@ data class SkillsInventory(
     val blue: List<String> = emptyList()
 )
 
+data class SkillUsedEvent(
+    val abilityId: String,
+    val username: String,
+    val isMine: Boolean
+)
+
 data class WsMessage(
     val type: String,
     val payload: JsonObject? = null
@@ -70,6 +76,9 @@ class GameWebSocket(
 
     private val _skillsInventory = MutableStateFlow(SkillsInventory())
     val skillsInventory: StateFlow<SkillsInventory> = _skillsInventory.asStateFlow()
+
+    private val _skillUsedEvent = MutableStateFlow<SkillUsedEvent?>(null)
+    val skillUsedEvent: StateFlow<SkillUsedEvent?> = _skillUsedEvent.asStateFlow()
 
     private fun JsonElement?.asStringOrNull(): String? {
         if (this == null || isJsonNull || !isJsonPrimitive || !asJsonPrimitive.isString) return null
@@ -320,6 +329,15 @@ class GameWebSocket(
 
             "waiting_for_player" -> {
                 _connectionState.value = "waiting"
+            }
+
+            "skill_used" -> {
+                msg.payload?.let { payload ->
+                    val abilityId = payload.get("skill")?.asStringOrNull() ?: return@let
+                    val username = payload.get("username")?.asStringOrNull() ?: return@let
+                    val isMine = payload.get("is_mine")?.asBooleanOr(false) ?: false
+                    _skillUsedEvent.value = SkillUsedEvent(abilityId, username, isMine)
+                }
             }
         }
     }

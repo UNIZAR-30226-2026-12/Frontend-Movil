@@ -75,6 +75,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.Popup
 import com.example.random_reversi.data.remote.SkillsInventory
+import com.example.random_reversi.data.remote.SkillUsedEvent
 
 private val BOARD_SIZE = 8
 
@@ -139,6 +140,11 @@ fun GameBoard1v1Screen(
     var selectingGravityFor by remember { mutableStateOf<Int?>(null) } // inventoryIndex
     var showGravityMenu by remember { mutableStateOf(false) }
     var skillErrorMessage by remember { mutableStateOf<String?>(null) }
+    var skillUsedPopup by remember { mutableStateOf<SkillUsedEvent?>(null) }
+    var previousMyInventory by remember { mutableStateOf<List<String>>(emptyList()) }
+    var previousOpponentInventory by remember { mutableStateOf<List<String>>(emptyList()) }
+    val skillUsedEventFromWs by ws?.skillUsedEvent?.collectAsState()
+        ?: remember { mutableStateOf<SkillUsedEvent?>(null) }
 
     val parsedPlayers = remember(roomPlayersRaw) {
         roomPlayersRaw.mapNotNull { raw ->
@@ -237,6 +243,44 @@ fun GameBoard1v1Screen(
             val newMessages = chatMessages.subList(processedChatCount, chatMessages.size)
             unreadChatCount += newMessages.count { (sender, _) -> sender != myUsername }
             processedChatCount = chatMessages.size
+        }
+    }
+
+    // ── Detectar uso de habilidad por cambio de inventario ─────────────────────
+    LaunchedEffect(skillsInventory, myUsername) {
+        val myInv = if (effectiveMyPiece == "black") skillsInventory.black else skillsInventory.white
+        val oppInv = if (effectiveMyPiece == "black") skillsInventory.white else skillsInventory.black
+
+        // Detectar que YO usé una habilidad
+        if (previousMyInventory.isNotEmpty() && myInv.size < previousMyInventory.size) {
+            val usedSkill = previousMyInventory.firstOrNull { !myInv.contains(it) }
+            if (usedSkill != null) {
+                skillUsedPopup = SkillUsedEvent(usedSkill, myUsername, true)
+            }
+        }
+        // Detectar que el rival usó una habilidad (su inventario se redujo)
+        if (previousOpponentInventory.isNotEmpty() && oppInv.size < previousOpponentInventory.size) {
+            val usedSkill = previousOpponentInventory.firstOrNull { !oppInv.contains(it) }
+            if (usedSkill != null) {
+                skillUsedPopup = SkillUsedEvent(usedSkill, opponentName, false)
+            }
+        }
+        previousMyInventory = myInv
+        previousOpponentInventory = oppInv
+    }
+
+    // ── Detectar evento skill_used del servidor ─────────────────────────────────
+    LaunchedEffect(skillUsedEventFromWs) {
+        skillUsedEventFromWs?.let { event ->
+            skillUsedPopup = event.copy(isMine = event.username == myUsername)
+        }
+    }
+
+    // ── Auto-ocultar popup tras 2500ms ──────────────────────────────────────────
+    LaunchedEffect(skillUsedPopup) {
+        if (skillUsedPopup != null) {
+            delay(2500)
+            skillUsedPopup = null
         }
     }
 
@@ -619,6 +663,11 @@ fun GameBoard1v1Screen(
                     }
                 }
             }
+        }
+
+        // ── Pop-up de habilidad usada ────────────────────────────────────────────
+        skillUsedPopup?.let { event ->
+            SkillUsedPopup(event = event, myUsername = myUsername)
         }
 
         AppModal(
@@ -1347,6 +1396,81 @@ fun GravityDirectionRow(onDirection: (String) -> Unit, onCancel: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Text("✕", color = TextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+// ── Pop-up animado de habilidad usada ────────────────────────────────────────
+@Composable
+fun SkillUsedPopup(event: SkillUsedEvent, myUsername: String) {
+    val meta = ABILITY_META_MOVIL[event.abilityId]
+        ?: AbilityMeta(event.abilityId, R.drawable.ingame_casillainterrogante, false)
+    val labelText = if (event.isMine)
+        "Has usado ${meta.name}"
+    else
+        "${event.username} ha usado ${meta.name}"
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 140.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            enter = androidx.compose.animation.fadeIn(
+                androidx.compose.animation.core.tween(250)
+            ) + androidx.compose.animation.slideInVertically(
+                initialOffsetY = { it / 2 },
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy
+                )
+            ),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            androidx.compose.material3.Surface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.82f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (event.isMine) androidx.compose.ui.graphics.Color(0xFFFFD700)
+                    else androidx.compose.ui.graphics.Color(0xFF94A3B8)
+                ),
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .wrapContentHeight()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = meta.drawableRes),
+                        contentDescription = meta.name,
+                        modifier = Modifier.size(52.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = if (event.isMine) "⚡ Tú" else "🗡️ ${event.username}",
+                            color = if (event.isMine)
+                                androidx.compose.ui.graphics.Color(0xFFFFD700)
+                            else
+                                androidx.compose.ui.graphics.Color(0xFF94A3B8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = labelText,
+                            color = androidx.compose.ui.graphics.Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
             }
         }
     }
