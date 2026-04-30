@@ -141,10 +141,7 @@ fun ProfileScreen(
             settingsError = null
             settingsSuccess = null
 
-            if (newPassword.isNotBlank() && newPassword != confirmPassword) {
-                settingsError = "Las contrasenas nuevas no coinciden"
-                return@launch
-            }
+
             if (newPassword.isNotBlank() && currentPassword.isBlank()) {
                 settingsError = "Debes indicar tu contrasena actual para cambiarla"
                 return@launch
@@ -176,7 +173,6 @@ fun ProfileScreen(
                     originalEmail = updated.email
                     currentPassword = ""
                     newPassword = ""
-                    confirmPassword = ""
                     stats = stats?.copy(username = updated.username, elo = updated.elo, avatar_url = updated.avatar_url)
                     UserProfileStore.refreshFromBackend()
                 }
@@ -353,17 +349,14 @@ fun ProfileScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        // Ajustado top=75dp para ganar algo de espacio hacia arriba
-                                        .padding(start = 24.dp, end = 24.dp, top = 75.dp, bottom = 12.dp),
-                                    // Espaciado fijo con más separación
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        .padding(start = 24.dp, end = 24.dp, top = 95.dp, bottom = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(7.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     StyledField(username, { username = it }, "Nombre de usuario")
                                     StyledField(email, { email = it }, "Email")
                                     StyledField(currentPassword, { currentPassword = it }, "Contraseña actual", true)
                                     StyledField(newPassword, { newPassword = it }, "Nueva contraseña", true)
-                                    StyledField(confirmPassword, { confirmPassword = it }, "Confirmar contraseña", true)
 
                                     if (!settingsError.isNullOrBlank()) {
                                         Text(settingsError!!, color = Color(0xFFDC2626), fontSize = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
@@ -510,10 +503,9 @@ private fun StyledField(value: String, onChange: (String) -> Unit, label: String
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
-        label = { Text(label, fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+        label = { Text(label, fontWeight = FontWeight.SemiBold, fontSize = 10.sp) },
         singleLine = true,
-        // Eliminamos el problema de invisibilidad forzando Color.Black en el texto
-        textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black, fontSize = 13.sp),
+        textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black, fontSize = 11.sp),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Color.Black,
@@ -524,8 +516,9 @@ private fun StyledField(value: String, onChange: (String) -> Unit, label: String
             unfocusedTextColor = Color.Black,
             cursorColor = Color.Black
         ),
-        // Se elimina la altura forzada para evitar el recorte del texto. Se deja que respire.
-        modifier = Modifier.fillMaxWidth(0.9f)
+        modifier = Modifier
+            .fillMaxWidth(0.9f)
+            .height(55.dp)
     )
 }
 
@@ -559,22 +552,21 @@ private fun WinRateCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, mod
 private fun StatsCard(modeStats: ModeStatsResponse, isFourPlayer: Boolean, modifier: Modifier = Modifier) {
     Box(modifier = modifier.clip(RoundedCornerShape(16.dp)), contentAlignment = Alignment.BottomCenter) {
         Image(
-            painter = painterResource(id = R.drawable.estadisticas),
+            painter = painterResource(id = if (isFourPlayer) R.drawable.estadisticas4p else R.drawable.estadisticas),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxWidth()
         )
         Column(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp).offset(x = 55.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = if (isFourPlayer) 28.dp else 18.dp).offset(x = 55.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy((-8).dp)
         ) {
-            Text(modeStats.total_games.toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
+            Text(modeStats.total_games.toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = if (isFourPlayer) 12.sp else 14.sp, textAlign = TextAlign.Center)
             if (isFourPlayer) {
-                Text((modeStats.first_place ?: 0).toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text((modeStats.second_place ?: 0).toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text((modeStats.third_place ?: 0).toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text((modeStats.fourth_place ?: 0).toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text((modeStats.first_place ?: 0).toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                val otherPlaces = (modeStats.second_place ?: 0) + (modeStats.third_place ?: 0) + (modeStats.fourth_place ?: 0)
+                Text(otherPlaces.toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
             } else {
                 Text(modeStats.wins.toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Text(modeStats.losses.toString(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -607,7 +599,7 @@ private fun NemesisCard(name: String, count: Int, isFourPlayer: Boolean, modifie
             modifier = Modifier.fillMaxWidth()
         )
         Column(modifier = Modifier.padding(bottom = 8.dp).offset(x = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(name, color = TextColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(name, color = TextColor, fontWeight = FontWeight.Bold, fontSize = 11.sp, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (count > 0) Text("${if (isFourPlayer) "Superado" else "Derrotas"}: $count", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center)
         }
     }
@@ -636,7 +628,7 @@ private fun VictimaCard(name: String, count: Int, isFourPlayer: Boolean, modifie
             modifier = Modifier.fillMaxWidth()
         )
         Column(modifier = Modifier.padding(top = 22.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(name, color = TextColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(name, color = TextColor, fontWeight = FontWeight.Bold, fontSize = 11.sp, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (count > 0) Text("${if (isFourPlayer) "Superado" else "Victorias"}: $count", color = TextMutedColor, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.offset(x = 8.dp))
         }
     }
