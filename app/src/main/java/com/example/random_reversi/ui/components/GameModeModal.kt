@@ -9,6 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,8 +36,17 @@ fun GameModeModal(
 ) {
     if (!isOpen) return
 
+    var step by remember(isOpen) { mutableStateOf("mode") }
+    var selectedMode by remember(isOpen) { mutableStateOf<String?>(null) }
+
+    val handleClose: () -> Unit = {
+        step = "mode"
+        selectedMode = null
+        onClose()
+    }
+
     Dialog(
-        onDismissRequest = onClose,
+        onDismissRequest = handleClose,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         // Envoltorio estilo popup-surface del front web
@@ -53,19 +66,44 @@ fun GameModeModal(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 8.dp, y = (-8).dp)
-                    .clickable(onClick = onClose)
+                    .clickable(onClick = handleClose)
                     .padding(8.dp)
             )
+
+            if (step == "variant") {
+                Text(
+                    text = "← Atrás",
+                    color = Color(0xFF4D3F31),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(x = (-8).dp, y = (-8).dp)
+                        .clickable {
+                            step = "mode"
+                            selectedMode = null
+                        }
+                        .padding(8.dp)
+                )
+            }
 
             Column(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header
+                // Dynamic header based on step
+                val displayTitle = if (step == "variant") {
+                    if (selectedMode == "1vs1") "1 vs 1 · Elige variante" else "1 vs 1 vs 1 vs 1 · Elige variante"
+                } else title
+
+                val displaySubtitle = if (step == "variant") {
+                    "Selecciona si quieres jugar con o sin habilidades especiales"
+                } else subtitle
+
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = title,
+                        text = displayTitle,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF1F1711),
@@ -73,28 +111,59 @@ fun GameModeModal(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = subtitle,
+                        text = displaySubtitle,
                         fontSize = 15.sp,
                         color = Color(0xFF4D3F31),
                         textAlign = TextAlign.Center
                     )
                 }
 
-                // Opciones de modo
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    GameModeCard(
-                        title = "1 vs 1",
-                        description = "Duelo de 2 jugadores",
-                        is16x16 = false,
-                        onClick = { onSelectMode("1vs1_skills") }
-                    )
-
-                    GameModeCard(
-                        title = "1 vs 1 vs 1 vs 1",
-                        description = "Todos contra todos de 4 jugadores",
-                        is16x16 = true,
-                        onClick = { onSelectMode("1vs1vs1vs1_skills") }
-                    )
+                // Conditional content based on step
+                if (step == "mode") {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        GameModeCard(
+                            title = "1 vs 1",
+                            description = "Duelo de 2 jugadores",
+                            is16x16 = false,
+                            onClick = {
+                                selectedMode = "1vs1"
+                                step = "variant"
+                            }
+                        )
+                        GameModeCard(
+                            title = "1 vs 1 vs 1 vs 1",
+                            description = "Todos contra todos de 4 jugadores",
+                            is16x16 = true,
+                            onClick = {
+                                selectedMode = "1vs1vs1vs1"
+                                step = "variant"
+                            }
+                        )
+                    }
+                } else {
+                    val is16x16 = selectedMode == "1vs1vs1vs1"
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        GameModeCard(
+                            title = "Clásico",
+                            description = "Juego sin habilidades especiales",
+                            is16x16 = is16x16,
+                            showSpecialCells = false,
+                            onClick = {
+                                val mode = checkNotNull(selectedMode) { "selectedMode must not be null in variant step" }
+                                onSelectMode(mode)
+                            }
+                        )
+                        GameModeCard(
+                            title = "Con Habilidades",
+                            description = "Juego con habilidades especiales",
+                            is16x16 = is16x16,
+                            showSpecialCells = true,
+                            onClick = {
+                                val mode = checkNotNull(selectedMode) { "selectedMode must not be null in variant step" }
+                                onSelectMode("${mode}_skills")
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -106,6 +175,7 @@ private fun GameModeCard(
     title: String,
     description: String,
     is16x16: Boolean,
+    showSpecialCells: Boolean = true,
     onClick: () -> Unit
 ) {
     // Estilo exacto del .game-modal__option
@@ -140,7 +210,7 @@ private fun GameModeCard(
                     .border(3.dp, Color(0xFF070F0A).copy(alpha = 0.44f), RoundedCornerShape(10.dp))
                     .padding(3.dp)
             ) {
-                BoardGridPreview(is16x16)
+                BoardGridPreview(is16x16, showSpecialCells)
             }
 
             Column(modifier = Modifier.weight(1f)) {
@@ -163,7 +233,7 @@ private fun GameModeCard(
 }
 
 @Composable
-private fun BoardGridPreview(is16x16: Boolean) {
+private fun BoardGridPreview(is16x16: Boolean, showSpecialCells: Boolean = true) {
     val gridSize = if (is16x16) 16 else 8
     val cellSize = 70.dp / gridSize
 
@@ -186,21 +256,25 @@ private fun BoardGridPreview(is16x16: Boolean) {
 
         // 2. Dibujar Piezas y Especiales usando offset
         if (!is16x16) {
-            SpecialCell(2, 7, cellSize, 8.sp)
-            SpecialCell(6, 2, cellSize, 8.sp)
-            SpecialCell(2, 2, cellSize, 8.sp)
-            SpecialCell(7, 6, cellSize, 8.sp)
+            if (showSpecialCells) {
+                SpecialCell(2, 7, cellSize, 8.sp)
+                SpecialCell(6, 2, cellSize, 8.sp)
+                SpecialCell(2, 2, cellSize, 8.sp)
+                SpecialCell(7, 6, cellSize, 8.sp)
+            }
 
             ReversiPiece(4, 4, "white", cellSize)
             ReversiPiece(4, 5, "black", cellSize)
             ReversiPiece(5, 4, "black", cellSize)
             ReversiPiece(5, 5, "white", cellSize)
         } else {
-            SpecialCell(2, 10, cellSize, 5.sp)
-            SpecialCell(10, 2, cellSize, 5.sp)
-            SpecialCell(15, 12, cellSize, 5.sp)
-            SpecialCell(3, 15, cellSize, 5.sp)
-            SpecialCell(8, 7, cellSize, 5.sp)
+            if (showSpecialCells) {
+                SpecialCell(2, 10, cellSize, 5.sp)
+                SpecialCell(10, 2, cellSize, 5.sp)
+                SpecialCell(15, 12, cellSize, 5.sp)
+                SpecialCell(3, 15, cellSize, 5.sp)
+                SpecialCell(8, 7, cellSize, 5.sp)
+            }
 
             // Superior izquierda
             ReversiPiece(4, 4, "black", cellSize)

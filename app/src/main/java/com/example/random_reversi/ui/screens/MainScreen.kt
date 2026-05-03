@@ -25,7 +25,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.example.random_reversi.R
+import com.example.random_reversi.data.SessionManager
 import com.example.random_reversi.data.UserProfileStore
+import com.example.random_reversi.ui.components.ConfirmModal
 import com.example.random_reversi.ui.components.GameModeModal
 import com.example.random_reversi.ui.theme.*
 import com.example.random_reversi.utils.AvatarPresets
@@ -33,6 +35,7 @@ import com.example.random_reversi.utils.AvatarPresets
 @Composable
 fun MainScreen(onNavigate: (screen: String) -> Unit) {
     var showGameModeModal by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
 
     val profile by UserProfileStore.state.collectAsState()
 
@@ -81,7 +84,7 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
                     elo = userElo,
                     avatarUrl = userAvatar,
                     onProfile = { onNavigate("profile") },
-                    onLogout  = { onNavigate("home") }
+                    onLogout  = { showLogoutConfirm = true }
                 )
             }
 
@@ -189,11 +192,26 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
         onClose = { showGameModeModal = false },
         onSelectMode = { mode ->
             showGameModeModal = false
-            when (mode) {
-                "1vs1vs1vs1" -> onNavigate("game-1vs1vs1vs1/-1/menu")
-                else         -> onNavigate("game-1vs1/-1/menu")
+            if (mode.startsWith("1vs1vs1vs1")) {
+                onNavigate("game-1vs1vs1vs1/-1/menu")
+            } else {
+                onNavigate("game-1vs1/-1/menu")
             }
         }
+    )
+
+    ConfirmModal(
+        isOpen = showLogoutConfirm,
+        onClose = { showLogoutConfirm = false },
+        onConfirm = {
+            showLogoutConfirm = false
+            SessionManager.clear()
+            UserProfileStore.clear()
+            onNavigate("home")
+        },
+        title = "Cerrar sesión",
+        message = "¿Seguro que quieres cerrar sesión?",
+        confirmLabel = "Cerrar sesión"
     )
 }
 
