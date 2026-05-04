@@ -142,18 +142,22 @@ fun AppNavigation() {
             "game-1vs1" -> {
                 val gameId = parts.getOrElse(1) { "-1" }.toIntOrNull() ?: -1
                 val returnTo = parts.getOrElse(2) { "online-game" }
+                val variant = parts.getOrElse(3) { "skills" }
                 GameBoard1v1Screen(
                     gameId = gameId,
                     returnTo = returnTo,
+                    variant = variant,
                     onNavigate = { currentScreen = it }
                 )
             }
             "game-1vs1vs1vs1" -> {
                 val gameId = parts.getOrElse(1) { "-1" }.toIntOrNull() ?: -1
                 val returnTo = parts.getOrElse(2) { "online-game" }
+                val variant = parts.getOrElse(3) { "skills" }
                 GameBoard1v1v1v1Screen(
                     gameId = gameId,
                     returnTo = returnTo,
+                    variant = variant,
                     onNavigate = { currentScreen = it }
                 )
             }

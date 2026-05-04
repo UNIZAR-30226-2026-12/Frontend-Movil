@@ -752,8 +752,8 @@ private fun PlayerCard4POverlay(
                 eloLblY   = 35.dp,   // + abajo
                 eloValX   = 102.dp,   // + derecha
                 eloValY   = 45.dp,   // + abajo
-                streakX   = 58.6.dp,    // + derecha
-                streakY   = h * 0.62f, // + abajo
+                streakX   = 58.9.dp,    // + derecha
+                streakY   = h * 0.61f, // + abajo
                 streakGap = 13.87.dp,   // + espacio
                 streakSz  = 13.dp,   // + tamaño
                 streakRot = -8f,      // + rota derecha
@@ -768,13 +768,13 @@ private fun PlayerCard4POverlay(
                 avatarY   = 24.dp,    // + abajo
                 avatarSz  = 32.dp,
                 nameX     = 65.dp,   // + derecha
-                nameY     = 24.dp,    // + abajo
+                nameY     = 22.2.dp,    // + abajo
                 eloLblX   = 63.dp,   // + derecha
                 eloLblY   = 39.dp,   // + abajo
                 eloValX   = 61.dp,   // + derecha
                 eloValY   = 49.dp,   // + abajo
-                streakX   = 44.6.dp,    // + derecha
-                streakY   = h * 0.62f, // + abajo
+                streakX   = 42.dp,    // + derecha
+                streakY   = h * 0.543f, // + abajo
                 streakGap = 13.87.dp,   // + espacio
                 streakSz  = 13.dp,   // + tamaño
                 streakRot = 8f,      // + rota derecha

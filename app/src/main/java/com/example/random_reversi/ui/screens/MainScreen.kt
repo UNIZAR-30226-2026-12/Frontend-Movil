@@ -192,10 +192,12 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
         onClose = { showGameModeModal = false },
         onSelectMode = { mode ->
             showGameModeModal = false
+            val hasSkills = mode.endsWith("_skills")
+            val variant = if (hasSkills) "skills" else "classic"
             if (mode.startsWith("1vs1vs1vs1")) {
-                onNavigate("game-1vs1vs1vs1/-1/menu")
+                onNavigate("game-1vs1vs1vs1/-1/menu/$variant")
             } else {
-                onNavigate("game-1vs1/-1/menu")
+                onNavigate("game-1vs1/-1/menu/$variant")
             }
         }
     )

@@ -109,6 +109,7 @@ data class BoardPlayer(
 fun GameBoard1v1Screen(
     gameId: Int = -1,
     returnTo: String = "online-game",
+    variant: String = "skills",
     onNavigate: (String) -> Unit
 ) {
     val ws = remember { if (gameId > 0) GameWebSocket(gameId) else null }

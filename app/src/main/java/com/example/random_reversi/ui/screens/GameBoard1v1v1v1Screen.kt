@@ -84,6 +84,7 @@ data class QuadPlayer(
 fun GameBoard1v1v1v1Screen(
     gameId: Int = -1,
     returnTo: String = "online-game",
+    variant: String = "skills",
     onNavigate: (String) -> Unit
 ) {
     val ws = remember { if (gameId > 0) GameWebSocket(gameId) else null }
