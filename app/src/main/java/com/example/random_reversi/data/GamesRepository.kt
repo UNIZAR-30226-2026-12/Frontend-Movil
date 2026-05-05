@@ -65,6 +65,19 @@ object GamesRepository {
         }
     }
 
+    suspend fun addBot(gameId: Int): UserResult<String> = withContext(Dispatchers.IO) {
+        try {
+            val response = ApiClient.authApiService.addBot(gameId)
+            if (response.isSuccessful) {
+                UserResult.Success("Bot añadido")
+            } else {
+                UserResult.Error("Error al añadir bot (${response.code()})")
+            }
+        } catch (e: Exception) {
+            UserResult.Error(e.message ?: "Error de conexión")
+        }
+    }
+
     suspend fun joinLobby(gameId: Int): UserResult<String> = withContext(Dispatchers.IO) {
         try {
             val response = ApiClient.authApiService.joinLobby(gameId)

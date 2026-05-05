@@ -9,6 +9,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import com.example.random_reversi.data.GamesRepository
+import com.example.random_reversi.data.UserResult
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -36,6 +39,8 @@ import com.example.random_reversi.utils.AvatarPresets
 fun MainScreen(onNavigate: (screen: String) -> Unit) {
     var showGameModeModal by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
+    var isCreatingAIGame by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val profile by UserProfileStore.state.collectAsState()
 
@@ -191,13 +196,42 @@ fun MainScreen(onNavigate: (screen: String) -> Unit) {
         isOpen  = showGameModeModal,
         onClose = { showGameModeModal = false },
         onSelectMode = { mode ->
+            if (isCreatingAIGame) return@GameModeModal
             showGameModeModal = false
             val hasSkills = mode.endsWith("_skills")
             val variant = if (hasSkills) "skills" else "classic"
             if (mode.startsWith("1vs1vs1vs1")) {
-                onNavigate("game-1vs1vs1vs1/-1/menu/$variant")
+                isCreatingAIGame = true
+                scope.launch {
+                    val result = GamesRepository.createLobby(mode)
+                    if (result is UserResult.Success) {
+                        val gameId = result.data.game_id
+                        GamesRepository.addBot(gameId)
+                        GamesRepository.addBot(gameId)
+                        GamesRepository.addBot(gameId)
+                        isCreatingAIGame = false
+                        onNavigate("game-1vs1vs1vs1/$gameId/menu/$variant")
+                    } else {
+                        isCreatingAIGame = false
+                        onNavigate("game-1vs1vs1vs1/-1/menu/$variant")
+                    }
+                }
             } else {
-                onNavigate("game-1vs1/-1/menu/$variant")
+                val backendMode = if (hasSkills) "vs_ai_skills" else "vs_ai"
+                isCreatingAIGame = true
+                scope.launch {
+                    val result = GamesRepository.createLobby(backendMode)
+                    isCreatingAIGame = false
+                    when (result) {
+                        is UserResult.Success -> {
+                            val gameId = result.data.game_id
+                            onNavigate("game-1vs1/$gameId/menu/$variant")
+                        }
+                        is UserResult.Error -> {
+                            onNavigate("game-1vs1/-1/menu/$variant")
+                        }
+                    }
+                }
             }
         }
     )

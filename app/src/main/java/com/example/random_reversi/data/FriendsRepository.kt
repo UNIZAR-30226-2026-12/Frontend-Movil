@@ -4,6 +4,7 @@ import com.example.random_reversi.data.remote.ApiClient
 import com.example.random_reversi.data.remote.ChatMessage
 import com.example.random_reversi.data.remote.FriendRequestBody
 import com.example.random_reversi.data.remote.SendMessageBody
+import com.example.random_reversi.data.remote.SocialPanelRaw
 import com.example.random_reversi.data.remote.SocialPanelResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,8 +15,14 @@ object FriendsRepository {
         try {
             val response = ApiClient.authApiService.getSocialPanel()
             if (response.isSuccessful) {
-                response.body()?.let { UserResult.Success(it) }
-                    ?: UserResult.Error("Respuesta vacia")
+                val raw = response.body() ?: return@withContext UserResult.Error("Respuesta vacia")
+                val merged = SocialPanelResponse(
+                    friends = raw.online + raw.offline,
+                    requests = raw.requests,
+                    gameRequests = raw.gameRequests,
+                    pausedGames = raw.pausedGames
+                )
+                UserResult.Success(merged)
             } else {
                 UserResult.Error("Error al cargar amigos (${response.code()})")
             }

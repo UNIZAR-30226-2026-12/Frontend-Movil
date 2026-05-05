@@ -182,6 +182,17 @@ data class PausedGameInfo(
     val active_players: List<String> = emptyList()
 )
 
+data class SocialPanelRaw(
+    val online: List<FriendInfo> = emptyList(),
+    val offline: List<FriendInfo> = emptyList(),
+    @SerializedName(value = "requests", alternate = ["pending_requests"])
+    val requests: List<FriendInfo> = emptyList(),
+    @SerializedName(value = "gameRequests", alternate = ["game_invitations"])
+    val gameRequests: List<GameInviteInfo> = emptyList(),
+    @SerializedName(value = "pausedGames", alternate = ["paused_games"])
+    val pausedGames: List<PausedGameInfo> = emptyList()
+)
+
 data class SocialPanelResponse(
     val friends: List<FriendInfo> = emptyList(),
     @SerializedName(value = "requests", alternate = ["pending_requests"])
@@ -381,7 +392,7 @@ interface AuthApiService {
     // ── Friends / Social ──
 
     @GET("api/friends")
-    suspend fun getSocialPanel(): Response<SocialPanelResponse>
+    suspend fun getSocialPanel(): Response<SocialPanelRaw>
 
     @POST("api/friends/request")
     suspend fun sendFriendRequest(@Body request: FriendRequestBody): Response<MessageResponse>
@@ -440,6 +451,9 @@ interface AuthApiService {
 
     @POST("api/games/{game_id}/leave")
     suspend fun leaveLobby(@Path("game_id") gameId: Int): Response<LobbyLeaveResponse>
+
+    @POST("api/games/{game_id}/add_bot")
+    suspend fun addBot(@Path("game_id") gameId: Int): Response<MessageResponse>
 
     // ── Ranking ──
 
