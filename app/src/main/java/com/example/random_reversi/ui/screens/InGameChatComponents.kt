@@ -124,7 +124,7 @@ fun InGameChatOverlay(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.FillBounds
             )
-            Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 12.dp)) {
                 Spacer(modifier = Modifier.height(75.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -146,7 +146,7 @@ fun InGameChatOverlay(
                     } else {
                         LazyColumn(
                             state = listState,
-                            modifier = Modifier.fillMaxSize().padding(10.dp),
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 4.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(messages) { (sender, message) ->
@@ -200,7 +200,6 @@ fun InGameChatOverlay(
                         onValueChange = { text = it },
                         modifier = Modifier
                             .weight(1f)
-                            .offset(x = 10.dp)
                             .height(48.dp)
                             .background(Color(0xFFFFF7E9).copy(alpha = 0.75f), RoundedCornerShape(10.dp))
                             .padding(horizontal = 12.dp),

@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -65,6 +66,7 @@ import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -495,11 +497,14 @@ fun GameBoard1v1v1v1Screen(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (hasBoard) {
+                                                val showValidMoves = canPlayThisTurn && pendingAbility == null
                                                 QuadrantPreview(
                                                     board = boardData,
                                                     startRow = rowQ * 8,
                                                     startCol = colQ * 8,
-                                                    style = quadStyle
+                                                    style = quadStyle,
+                                                    skillTiles = gameState.skill_tiles,
+                                                    validMoves = if (showValidMoves) gameState.valid_moves else emptyList()
                                                 )
                                             }
                                             Box(
@@ -624,7 +629,7 @@ fun GameBoard1v1v1v1Screen(
                             contentDescription = "Chat",
                             modifier = Modifier
                                 .size(70.dp)
-                                .offset(x = (-5).dp),
+                                .offset(x = (-5).dp, y = (-6).dp),
                             contentScale = ContentScale.Fit
                         )
                         if (unreadChatCount > 0) {
@@ -660,7 +665,8 @@ fun GameBoard1v1v1v1Screen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                        .padding(horizontal = 4.dp, vertical = 4.dp)
+                        .clipToBounds(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -676,7 +682,7 @@ fun GameBoard1v1v1v1Screen(
                                 color = Color.White,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.offset(x = (-10).dp, y = 5.dp)
+                                modifier = Modifier.offset(x = (-22).dp, y = 0.dp)
                             )
                         }
                     } else {
@@ -695,71 +701,67 @@ fun GameBoard1v1v1v1Screen(
                                 onCancel = { selectingGravityFor = null; showGravityMenu = false }
                             )
                         } else {
-                            LazyColumn(
+                            LazyRow(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(96.dp)
-                                    .offset(x = 20.dp, y = 5.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    .width(90.dp) // Ancho fijo: 44dp(hab1) + 8dp(espacio) + 44dp(hab2) + margen = recorta el scroll exactamente a 2
+                                    .height(50.dp)
+                                    .offset(x = 0.1.dp, y = 4.dp) // x=10 (un poco a la derecha), y=4 (más arriba para no pegar abajo)
+                                    .clipToBounds(), // Corta visualmente cualquier cosa que sobresalga de este recuadro al hacer scroll
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                itemsIndexed(myInventory.chunked(2)) { chunkIdx, chunk ->
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        chunk.forEachIndexed { i, abilityId ->
-                                            val idx = chunkIdx * 2 + i
-                                            val meta = ABILITY_META_MOVIL[abilityId]
-                                                ?: AbilityMeta(abilityId, R.drawable.ingame_casillainterrogante, true)
-                                            val isSelected = pendingAbility?.inventoryIndex == idx
-                                            val canUse = canPlayThisTurn && !gameOver
-                                            SkillButton(
-                                                meta = meta,
-                                                isSelected = isSelected,
-                                                canUse = canUse,
-                                                onClick = {
-                                                    if (!canUse) return@SkillButton
-                                                    // Inventarios de rivales
-                                                    val opponentPieces = playerByPiece.keys.filter { it != effectiveMyPiece && it in gameState.scores.keys }
-                                                    fun inventoryOf(piece: String) = when (piece) {
-                                                        "black" -> skillsInventory.black
-                                                        "white" -> skillsInventory.white
-                                                        "red"   -> skillsInventory.red
-                                                        "blue"  -> skillsInventory.blue
-                                                        else    -> emptyList()
-                                                    }
-                                                    val anyRivalHasSkills = opponentPieces.any { inventoryOf(it).isNotEmpty() }
-                                                    val rivalHasFixed = gameState.fixed_pieces.any { cell ->
-                                                        val pieceAt = gameState.board.getOrNull(cell[0])?.getOrNull(cell[1])
-                                                        pieceAt != null && pieceAt != effectiveMyPiece
-                                                    }
-                                                    val errorMsg = when (abilityId) {
-                                                        "steal_skill"    -> if (!anyRivalHasSkills) "Ningún rival tiene habilidades que robar." else null
-                                                        "give_skill"     -> if (myInventory.size < 2) "No tienes ninguna otra habilidad para dar." else null
-                                                        "exchange_skill" -> when {
-                                                            myInventory.size < 2 -> "No tienes ninguna otra habilidad para intercambiar."
-                                                            !anyRivalHasSkills   -> "Ningún rival tiene habilidades para intercambiar."
-                                                            else                 -> null
-                                                        }
-                                                        "unfix_piece"    -> if (!rivalHasFixed) "No hay fichas fijas de ningún rival en el tablero." else null
-                                                        else -> null
-                                                    }
-                                                    if (errorMsg != null) {
-                                                        skillErrorMessage = errorMsg
-                                                        return@SkillButton
-                                                    }
-                                                    if (abilityId == "gravity") {
-                                                        selectingGravityFor = idx
-                                                        showGravityMenu = true
-                                                    } else if (meta.needsTarget) {
-                                                        pendingAbility = if (isSelected) null
-                                                        else PendingAbilityMobile(abilityId, idx)
-                                                    } else {
-                                                        val opponents = playerByPiece.keys.filter { it != effectiveMyPiece && it in gameState.scores.keys }
-                                                        val targetOpponent = opponents.maxByOrNull { gameState.scores[it] ?: 0 } ?: "black"
-                                                        ws?.sendSkillInstant(abilityId, targetOpponent, idx)
-                                                    }
+                                itemsIndexed(myInventory) { idx, abilityId ->
+                                    val meta = ABILITY_META_MOVIL[abilityId]
+                                        ?: AbilityMeta(abilityId, R.drawable.ingame_casillainterrogante, true)
+                                    val isSelected = pendingAbility?.inventoryIndex == idx
+                                    val canUse = canPlayThisTurn && !gameOver
+                                    SkillButton(
+                                        meta = meta,
+                                        isSelected = isSelected,
+                                        canUse = canUse,
+                                        onClick = {
+                                            if (!canUse) return@SkillButton
+                                            // Inventarios de rivales
+                                            val opponentPieces = playerByPiece.keys.filter { it != effectiveMyPiece && it in gameState.scores.keys }
+                                            fun inventoryOf(piece: String) = when (piece) {
+                                                "black" -> skillsInventory.black
+                                                "white" -> skillsInventory.white
+                                                "red"   -> skillsInventory.red
+                                                "blue"  -> skillsInventory.blue
+                                                else    -> emptyList()
+                                            }
+                                            val anyRivalHasSkills = opponentPieces.any { inventoryOf(it).isNotEmpty() }
+                                            val rivalHasFixed = gameState.fixed_pieces.any { cell ->
+                                                val pieceAt = gameState.board.getOrNull(cell[0])?.getOrNull(cell[1])
+                                                pieceAt != null && pieceAt != effectiveMyPiece
+                                            }
+                                            val errorMsg = when (abilityId) {
+                                                "steal_skill"    -> if (!anyRivalHasSkills) "Ningún rival tiene habilidades que robar." else null
+                                                "give_skill"     -> if (myInventory.size < 2) "No tienes ninguna otra habilidad para dar." else null
+                                                "exchange_skill" -> when {
+                                                    myInventory.size < 2 -> "No tienes ninguna otra habilidad para intercambiar."
+                                                    !anyRivalHasSkills   -> "Ningún rival tiene habilidades para intercambiar."
+                                                    else                 -> null
                                                 }
-                                            )
+                                                "unfix_piece"    -> if (!rivalHasFixed) "No hay fichas fijas de ningún rival en el tablero." else null
+                                                else -> null
+                                            }
+                                            if (errorMsg != null) {
+                                                skillErrorMessage = errorMsg
+                                                return@SkillButton
+                                            }
+                                            if (abilityId == "gravity") {
+                                                selectingGravityFor = idx
+                                                showGravityMenu = true
+                                            } else if (meta.needsTarget) {
+                                                pendingAbility = if (isSelected) null
+                                                else PendingAbilityMobile(abilityId, idx)
+                                            } else {
+                                                val opponents = playerByPiece.keys.filter { it != effectiveMyPiece && it in gameState.scores.keys }
+                                                val targetOpponent = opponents.maxByOrNull { gameState.scores[it] ?: 0 } ?: "black"
+                                                ws?.sendSkillInstant(abilityId, targetOpponent, idx)
+                                            }
                                         }
-                                    }
+                                    )
                                 }
                             }
                         }
@@ -1205,13 +1207,17 @@ private fun QuadrantPreview(
     board: List<List<String?>>,
     startRow: Int,
     startCol: Int,
-    style: BoardPieceStyle4P
+    style: BoardPieceStyle4P,
+    skillTiles: List<List<Int>> = emptyList(),
+    validMoves: List<List<Int>> = emptyList()
 ) {
     Column(Modifier.fillMaxSize().padding(2.dp)) {
         for (r in startRow until (startRow + 8)) {
             Row(Modifier.weight(1f)) {
                 for (c in startCol until (startCol + 8)) {
                     val cell = board.getOrNull(r)?.getOrNull(c)
+                    val isSkillTile = skillTiles.any { it.size >= 2 && it[0] == r && it[1] == c }
+                    val isMoveTarget = validMoves.any { it.size >= 2 && it[0] == r && it[1] == c }
                     Box(
                         Modifier
                             .weight(1f)
@@ -1219,12 +1225,31 @@ private fun QuadrantPreview(
                             .border(0.1.dp, Color.White.copy(alpha = 0.05f)),
                         contentAlignment = Alignment.Center
                     ) {
+                        if (isSkillTile && cell == null) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ingame_casillainterrogante),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(0.7f),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                        // Indicador de movimiento válido (Puntito blanco)
+                        if (isMoveTarget && cell == null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize(0.35f)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.45f))
+                            )
+                        }
                         if (cell != null) {
+                            val pieceColor = colorFromCell(cell, style)
                             Box(
                                 Modifier
                                     .fillMaxSize(0.58f)
                                     .clip(CircleShape)
-                                    .background(colorFromCell(cell, style))
+                                    .background(pieceColor)
+                                    .border(0.5.dp, lightenColor(pieceColor, 0.38f), CircleShape)
                             )
                         }
                     }
@@ -1317,8 +1342,8 @@ private fun GameCell4p(
                     .clip(CircleShape)
                     .background(colorFromCell(currentColor ?: "black", style))
                     .border(
-                        width = if (isFixed) 2.dp else 1.dp,
-                        color = if (isFixed) Color(0xFFFFD700) else Color.White.copy(alpha = 0.25f),
+                        width = if (isFixed) 2.dp else 1.5.dp,
+                        color = if (isFixed) Color(0xFFFFD700) else lightenColor(colorFromCell(currentColor ?: "black", style), 0.38f),
                         shape = CircleShape
                     )
             )
@@ -1366,4 +1391,13 @@ private fun colorFromCell(cellValue: String, style: BoardPieceStyle4P): Color {
         "blue" -> style.p4
         else -> Color.Gray
     }
+}
+
+private fun lightenColor(color: Color, fraction: Float = 0.38f): Color {
+    return Color(
+        red = (color.red + (1f - color.red) * fraction).coerceIn(0f, 1f),
+        green = (color.green + (1f - color.green) * fraction).coerceIn(0f, 1f),
+        blue = (color.blue + (1f - color.blue) * fraction).coerceIn(0f, 1f),
+        alpha = color.alpha
+    )
 }
