@@ -1,4 +1,4 @@
-﻿package com.example.random_reversi.ui.screens
+package com.example.random_reversi.ui.screens
 
 import androidx.compose.ui.graphics.Color
 import com.example.random_reversi.R
@@ -25,7 +25,8 @@ data class BoardPieceStyle4P(
 
 data class ArenaTheme(
     val boardRes: Int,
-    val backgroundRes: Int
+    val backgroundRes: Int,
+    val boardRes1v1: Int = boardRes
 )
 
 val PIECE_STYLES_1V1 = listOf(
@@ -79,19 +80,19 @@ fun decodeBoardPiecePreference(value: String?): Pair<Int, Int> {
 
 fun getArenaFromElo1v1(elo: Int): ArenaTheme {
     return when {
-        elo < 900 -> ArenaTheme(R.drawable.woodboard, R.drawable.woodbackground)
-        elo < 1100 -> ArenaTheme(R.drawable.quartzboard, R.drawable.quartzbackground)
-        elo < 1300 -> ArenaTheme(R.drawable.fireboard, R.drawable.firebackground)
-        else -> ArenaTheme(R.drawable.iceboard, R.drawable.icebackground)
+        elo < 900 -> ArenaTheme(R.drawable.tableromadera1v1, R.drawable.fondomadera)
+        elo < 1100 -> ArenaTheme(R.drawable.tablerocuarzo1v1, R.drawable.fondocuarzo)
+        elo < 1300 -> ArenaTheme(R.drawable.tablerofuego1v1, R.drawable.fondofuego)
+        else -> ArenaTheme(R.drawable.tablerohielo1v1, R.drawable.fondohielo)
     }
 }
 
 fun getArenaFromElo4p(elo: Int): ArenaTheme {
     return when {
-        elo < 900 -> ArenaTheme(R.drawable.woodboard4players, R.drawable.woodbackground)
-        elo < 1100 -> ArenaTheme(R.drawable.quartzboard4players, R.drawable.quartzbackground)
-        elo < 1300 -> ArenaTheme(R.drawable.fireboard4players, R.drawable.firebackground)
-        else -> ArenaTheme(R.drawable.iceboard4players, R.drawable.icebackground)
+        elo < 900 -> ArenaTheme(R.drawable.tableromadera1v1v1v1, R.drawable.fondomadera, R.drawable.tableromadera1v1)
+        elo < 1100 -> ArenaTheme(R.drawable.tablerocuarzo1v1v1v1, R.drawable.fondocuarzo, R.drawable.tablerocuarzo1v1)
+        elo < 1300 -> ArenaTheme(R.drawable.tablerofuego1v1v1v1, R.drawable.fondofuego, R.drawable.tablerofuego1v1)
+        else -> ArenaTheme(R.drawable.tablerohielo1v1v1v1, R.drawable.fondohielo, R.drawable.tablerohielo1v1)
     }
 }
 

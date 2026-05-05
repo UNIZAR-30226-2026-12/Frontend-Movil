@@ -453,11 +453,13 @@ fun GameBoard1v1v1v1Screen(
                     .fillMaxWidth()
                     .aspectRatio(0.88f)
             ) {
-                // Fondo decorativo del tablero
                 Image(
-                    painter = painterResource(id = R.drawable.ingame_fondotablero),
+                    painter = painterResource(id = arenaTheme.backgroundRes),
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(4.dp, Color(0xFFF7F1E5), RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(12.dp)),
                     contentScale = ContentScale.FillBounds
                 )
 
@@ -472,7 +474,7 @@ fun GameBoard1v1v1v1Screen(
                     val hasBoard = boardData.isNotEmpty()
 
                     Image(
-                        painter = painterResource(id = if (selectedQuadrant == null) R.drawable.ingame_tablero1v1v1v1 else R.drawable.ingame_tablero1vs1v2),
+                        painter = painterResource(id = if (selectedQuadrant == null) arenaTheme.boardRes else arenaTheme.boardRes1v1),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.FillBounds
