@@ -281,7 +281,9 @@ fun WaitingRoomScreen(
                     }
                 }
             }
-            delay(1200)
+            // Si el WS ya está activo, el polling REST es solo un fallback: esperar más
+            val wsOk = wsConnectionState == "connected" || wsConnectionState == "waiting"
+            delay(if (wsOk) 3000L else 1200L)
         }
     }
 

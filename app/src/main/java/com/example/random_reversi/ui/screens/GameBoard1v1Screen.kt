@@ -654,7 +654,18 @@ fun GameBoard1v1Screen(
                                                         pendingAbility = if (isSelected) null
                                                         else PendingAbilityMobile(abilityId, idx)
                                                     } else {
-                                                        ws?.sendSkillInstant(abilityId, opponentColor, idx)
+                                                        // Para habilidades sociales necesitamos target_inventory_index
+                                                        val targetInvIndex = when (abilityId) {
+                                                            "steal_skill", "exchange_skill" ->
+                                                                // Índice 0: primer habilidad del rival
+                                                                0
+                                                            "give_skill" ->
+                                                                // Primera habilidad nuestra que NO sea el propio give_skill
+                                                                myInventory.indexOfFirst { it != "give_skill" }
+                                                                    .takeIf { it >= 0 } ?: 0
+                                                            else -> 0
+                                                        }
+                                                        ws?.sendSkillInstant(abilityId, opponentColor, idx, targetInvIndex)
                                                     }
                                                 }
                                             )

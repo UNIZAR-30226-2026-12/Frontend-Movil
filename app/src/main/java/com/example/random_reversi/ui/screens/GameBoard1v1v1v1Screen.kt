@@ -36,6 +36,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -525,6 +526,7 @@ fun GameBoard1v1v1v1Screen(
                             for (r in startRow until (startRow + 8)) {
                                 Row(Modifier.weight(1f)) {
                                     for (c in startCol until (startCol + 8)) {
+                                        key(r * 16 + c) {
                                         val cellValue = boardData.getOrNull(r)?.getOrNull(c)
                                         val isValidMove =
                                             gameState.valid_moves.any { it.size >= 2 && it[0] == r && it[1] == c }
@@ -563,6 +565,7 @@ fun GameBoard1v1v1v1Screen(
                                                 }
                                             }
                                         )
+                                        } // key
                                     }
                                 }
                             }
@@ -758,7 +761,18 @@ fun GameBoard1v1v1v1Screen(
                                             } else {
                                                 val opponents = playerByPiece.keys.filter { it != effectiveMyPiece && it in gameState.scores.keys }
                                                 val targetOpponent = opponents.maxByOrNull { gameState.scores[it] ?: 0 } ?: "black"
-                                                ws?.sendSkillInstant(abilityId, targetOpponent, idx)
+                                                // Para habilidades sociales necesitamos target_inventory_index
+                                                val targetInvIndex = when (abilityId) {
+                                                    "steal_skill", "exchange_skill" ->
+                                                        // Índice 0: primer habilidad del rival objetivo
+                                                        0
+                                                    "give_skill" ->
+                                                        // Primera habilidad nuestra que NO sea el propio give_skill
+                                                        myInventory.indexOfFirst { it != "give_skill" }
+                                                            .takeIf { it >= 0 } ?: 0
+                                                    else -> 0
+                                                }
+                                                ws?.sendSkillInstant(abilityId, targetOpponent, idx, targetInvIndex)
                                             }
                                         }
                                     )

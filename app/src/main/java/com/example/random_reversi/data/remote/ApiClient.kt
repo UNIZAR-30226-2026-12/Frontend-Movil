@@ -34,7 +34,9 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        // En debug logueamos headers; en release lo desactivamos para no bloquear el hilo de red
+        level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS
+                else HttpLoggingInterceptor.Level.NONE
     }
 
     private val authInterceptor = okhttp3.Interceptor { chain ->
@@ -47,7 +49,7 @@ object ApiClient {
         chain.proceed(requestBuilder.build())
     }
 
-    private val okHttpClient = OkHttpClient.Builder()
+    val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)

@@ -16,6 +16,7 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
 
+
 data class GameState(
     val board: List<List<String?>> = emptyList(),
     val current_player: String? = null,
@@ -110,27 +111,30 @@ class GameWebSocket(
     }
 
     private fun normalizePieceCell(raw: JsonElement): String? {
-        if (raw.isJsonNull) return null
-        val primitive = raw.asJsonPrimitive
-        return when {
-            primitive.isString -> {
-                when (val value = primitive.asString.lowercase()) {
-                    "black", "white", "red", "blue" -> value
-                    "null", "none", "empty", "" -> null
+        return try {
+            if (raw.isJsonNull) return null
+            if (raw.isJsonPrimitive) {
+                val primitive = raw.asJsonPrimitive
+                when {
+                    primitive.isString -> {
+                        when (val value = primitive.asString.lowercase().trim()) {
+                            "black", "white", "red", "blue" -> value
+                            else -> null
+                        }
+                    }
+                    primitive.isNumber -> {
+                        when (primitive.asInt) {
+                            0 -> "black"
+                            1 -> "white"
+                            2 -> "red"
+                            3 -> "blue"
+                            else -> null
+                        }
+                    }
                     else -> null
                 }
-            }
-            primitive.isNumber -> {
-                when (primitive.asInt) {
-                    0 -> "black"
-                    1 -> "white"
-                    2 -> "red"
-                    3 -> "blue"
-                    else -> null
-                }
-            }
-            else -> null
-        }
+            } else null
+        } catch (_: Exception) { null }
     }
 
     fun connect() {
@@ -144,9 +148,11 @@ class GameWebSocket(
 
         val wsUrl = "$baseUrl/ws/play/$gameId?token=$token"
 
-        val client = OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .pingInterval(30, TimeUnit.SECONDS)
+        // Reutilizamos el cliente singleton (mismo pool de hilos y conexiones)
+        // Solo sobreescribimos los timeouts específicos de WebSocket
+        val client = ApiClient.okHttpClient.newBuilder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)   // sin timeout de lectura (stream abierto)
+            .pingInterval(30, TimeUnit.SECONDS)       // keep-alive
             .build()
 
         val request = Request.Builder()
@@ -200,10 +206,12 @@ class GameWebSocket(
                     try {
 
                         val board = payload.arrayOrEmpty("board")?.let { boardArray ->
-                            boardArray.map { row ->
-                                row.asJsonArray.map { cell ->
-                                    normalizePieceCell(cell)
-                                }
+                            boardArray.mapNotNull { row ->
+                                if (row.isJsonArray) {
+                                    row.asJsonArray.map { cell -> normalizePieceCell(cell) }
+                                } else if (row.isJsonNull) {
+                                    null  // fila nula → se descarta
+                                } else null
                             }
                         } ?: emptyList()
 
@@ -377,12 +385,13 @@ class GameWebSocket(
         webSocket?.send(json)
     }
 
-    fun sendSkillInstant(abilityType: String, targetPlayer: String, inventoryIndex: Int) {
+    fun sendSkillInstant(abilityType: String, targetPlayer: String, inventoryIndex: Int, targetInventoryIndex: Int = 0) {
         val json = gson.toJson(mapOf(
             "action" to "use_skill",
             "type" to abilityType,
             "target_player" to targetPlayer,
-            "inventory_index" to inventoryIndex
+            "inventory_index" to inventoryIndex,
+            "target_inventory_index" to targetInventoryIndex
         ))
         webSocket?.send(json)
     }
