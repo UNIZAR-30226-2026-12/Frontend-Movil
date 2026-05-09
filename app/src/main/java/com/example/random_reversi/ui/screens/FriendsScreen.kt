@@ -55,7 +55,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import coil.compose.AsyncImage
 import com.example.random_reversi.R
 import com.example.random_reversi.data.FriendsRepository
 import com.example.random_reversi.data.GamesRepository
@@ -67,7 +66,7 @@ import com.example.random_reversi.data.remote.PausedGameInfo
 import com.example.random_reversi.data.remote.SocialPanelResponse
 import com.example.random_reversi.ui.navigation.NavigationMessages
 import com.example.random_reversi.ui.theme.*
-import com.example.random_reversi.utils.AvatarPresets
+import com.example.random_reversi.utils.AvatarImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -1319,34 +1318,27 @@ private fun AvatarSmall(avatarUrl: String?, name: String) {
             .background(Color.White)
             .border(1.5.dp, Color.Black, CircleShape)
     ) {
-        val presetRes = AvatarPresets.drawableForId(avatarUrl)
-        when {
-            presetRes != null -> Image(
-                painter = painterResource(presetRes),
-                contentDescription = name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            !avatarUrl.isNullOrBlank() -> AsyncImage(
-                model = avatarUrl,
-                contentDescription = name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            else -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(PrimaryColor),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
+        AvatarImage(
+            avatarUrl = avatarUrl,
+            contentDescription = name,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            fallback = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(PrimaryColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
             }
-        }
+        )
     }
 }
 

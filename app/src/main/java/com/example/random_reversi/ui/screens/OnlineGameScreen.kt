@@ -24,7 +24,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.random_reversi.R
 import com.example.random_reversi.data.GamesRepository
 import com.example.random_reversi.data.UserRepository
@@ -33,7 +32,7 @@ import com.example.random_reversi.data.remote.HistoryEntry
 import com.example.random_reversi.data.remote.PublicLobby
 import com.example.random_reversi.ui.components.GameModeModal
 import com.example.random_reversi.ui.theme.*
-import com.example.random_reversi.utils.AvatarPresets
+import com.example.random_reversi.utils.AvatarImage
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
@@ -428,30 +427,17 @@ private fun GamePostIt(game: PublicLobby, modifier: Modifier = Modifier, onJoin:
                         .background(Color.White)
                         .border(1.dp, Color.Black, CircleShape)
                 ) {
-                    val presetAvatar = AvatarPresets.drawableForId(game.avatar_url)
-                    when {
-                        presetAvatar != null -> {
-                            Image(
-                                painter = painterResource(id = presetAvatar),
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        !game.avatar_url.isNullOrBlank() -> {
-                            AsyncImage(
-                                model = game.avatar_url,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        else -> {
+                    AvatarImage(
+                        avatarUrl = game.avatar_url,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        fallback = {
                             Box(modifier = Modifier.fillMaxSize().background(PrimaryColor), contentAlignment = Alignment.Center) {
                                 Text(creator.firstOrNull()?.uppercase() ?: "?", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                    }
+                    )
                 }
             }
 

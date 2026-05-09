@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
-import coil.compose.AsyncImage
 import com.example.random_reversi.R
 import com.example.random_reversi.data.GamesRepository
 import com.example.random_reversi.data.UserProfileStore
@@ -29,7 +28,7 @@ import com.example.random_reversi.data.remote.GameWebSocket
 import com.example.random_reversi.data.remote.LobbyPlayerInfo
 import com.example.random_reversi.ui.navigation.NavigationMessages
 import com.example.random_reversi.ui.theme.*
-import com.example.random_reversi.utils.AvatarPresets
+import com.example.random_reversi.utils.AvatarImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -574,7 +573,6 @@ private fun PlayerCardOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(modifier = Modifier.size(avatarSize)) {
-                    val presetRes = AvatarPresets.drawableForId(player.avatar_url)
                     Surface(
                         modifier = Modifier
                             .fillMaxSize()
@@ -586,15 +584,17 @@ private fun PlayerCardOverlay(
                             ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        if (presetRes != null) {
-                            Image(painter = painterResource(id = presetRes), contentDescription = null, contentScale = ContentScale.Crop)
-                        } else if (!player.avatar_url.isNullOrBlank()) {
-                            AsyncImage(model = player.avatar_url, contentDescription = null, contentScale = ContentScale.Crop)
-                        } else {
-                            Box(modifier = Modifier.fillMaxSize().background(Color.LightGray), contentAlignment = Alignment.Center) {
-                                Text(player.username.first().toString().uppercase(), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        AvatarImage(
+                            avatarUrl = player.avatar_url,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                            fallback = {
+                                Box(modifier = Modifier.fillMaxSize().background(Color.LightGray), contentAlignment = Alignment.Center) {
+                                    Text(player.username.first().toString().uppercase(), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
-                        }
+                        )
                     }
                     if (player.is_ready) {
                         Box(
@@ -854,7 +854,6 @@ private fun PlayerCard4POverlay(
                     .offset(x = pos.avatarX, y = pos.avatarY)
                     .graphicsLayer(rotationZ = pos.avatarRot)
             ) {
-                val presetRes = AvatarPresets.drawableForId(player.avatar_url)
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
@@ -865,32 +864,26 @@ private fun PlayerCard4POverlay(
                         ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    if (presetRes != null) {
-                        Image(
-                            painter = painterResource(id = presetRes),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop
-                        )
-                    } else if (!player.avatar_url.isNullOrBlank()) {
-                        AsyncImage(
-                            model = player.avatar_url,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.LightGray),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                player.username.first().toString().uppercase(),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                    AvatarImage(
+                        avatarUrl = player.avatar_url,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                        fallback = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.LightGray),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    player.username.first().toString().uppercase(),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
-                    }
+                    )
                 }
                 if (player.is_ready) {
                     Box(

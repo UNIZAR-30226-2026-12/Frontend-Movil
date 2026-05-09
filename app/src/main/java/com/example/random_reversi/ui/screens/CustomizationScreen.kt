@@ -50,6 +50,7 @@ import com.example.random_reversi.data.UserProfileStore
 import com.example.random_reversi.data.UserRepository
 import com.example.random_reversi.data.UserResult
 import com.example.random_reversi.ui.theme.*
+import com.example.random_reversi.utils.AvatarImage
 import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.launch
 
@@ -251,7 +252,6 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 val preset = avatarOptions.firstOrNull { it.id == selectedAvatarId }
-                val customImageModel = localImageUri ?: customAvatarUrl
 
                 when {
                     preset != null -> Image(
@@ -262,13 +262,32 @@ fun CustomizationScreen(onNavigate: (screen: String) -> Unit) {
                             .size(86.dp)
                             .clip(RoundedCornerShape(12.dp))
                     )
-                    customImageModel != null -> AsyncImage(
-                        model = customImageModel,
+                    localImageUri != null -> AsyncImage(
+                        model = localImageUri,
                         contentDescription = "Custom avatar",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(86.dp)
                             .clip(RoundedCornerShape(12.dp))
+                    )
+                    !customAvatarUrl.isNullOrBlank() -> AvatarImage(
+                        avatarUrl = customAvatarUrl,
+                        contentDescription = "Custom avatar",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(86.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        fallback = {
+                            Box(
+                                modifier = Modifier
+                                    .size(86.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(PrimaryColor),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("?", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     )
                     else -> Box(
                         modifier = Modifier
@@ -563,14 +582,25 @@ private fun CustomAvatarOptionButton(imageModel: Any, isSelected: Boolean, onCli
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        AsyncImage(
-            model = imageModel,
-            contentDescription = "Custom avatar option",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(8.dp))
-        )
+        if (imageModel is String) {
+            AvatarImage(
+                avatarUrl = imageModel,
+                contentDescription = "Custom avatar option",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+            )
+        } else {
+            AsyncImage(
+                model = imageModel,
+                contentDescription = "Custom avatar option",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+            )
+        }
         Image(
             painter = painterResource(id = R.drawable.marcofoto3),
             contentDescription = null,

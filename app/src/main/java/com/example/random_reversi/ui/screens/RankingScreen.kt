@@ -18,13 +18,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.random_reversi.data.RankingRepository
 import com.example.random_reversi.data.UserProfileStore
 import com.example.random_reversi.data.UserResult
 import com.example.random_reversi.data.remote.RankingEntry
 import com.example.random_reversi.ui.theme.*
-import com.example.random_reversi.utils.AvatarPresets
+import com.example.random_reversi.utils.AvatarImage
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.Image
 import androidx.compose.ui.zIndex
@@ -228,25 +227,12 @@ private fun RankingItem(position: Int, entry: RankingEntry, isCurrentUser: Boole
                 modifier = Modifier.size(40.dp).background(SurfaceLightColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                val presetRes = AvatarPresets.drawableForId(entry.avatar_url)
-                when {
-                    presetRes != null -> {
-                        Image(
-                            painter = painterResource(id = presetRes),
-                            contentDescription = "Avatar de ${entry.username}",
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                    !entry.avatar_url.isNullOrBlank() -> {
-                        AsyncImage(
-                            model = entry.avatar_url,
-                            contentDescription = "Avatar de ${entry.username}",
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                    else -> {
+                AvatarImage(
+                    avatarUrl = entry.avatar_url,
+                    contentDescription = "Avatar de ${entry.username}",
+                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                    contentScale = ContentScale.Crop,
+                    fallback = {
                         Text(
                             entry.username.firstOrNull()?.uppercase() ?: "?",
                             fontSize = 16.sp,
@@ -254,7 +240,7 @@ private fun RankingItem(position: Int, entry: RankingEntry, isCurrentUser: Boole
                             color = TextColor
                         )
                     }
-                }
+                )
             }
 
             Spacer(modifier = Modifier.width(12.dp))

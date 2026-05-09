@@ -49,7 +49,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.random_reversi.R
 import com.example.random_reversi.data.GamesRepository
 import com.example.random_reversi.data.UserProfileStore
@@ -59,7 +58,7 @@ import com.example.random_reversi.data.remote.HeadToHeadResponse
 import com.example.random_reversi.data.remote.ModeStatsResponse
 import com.example.random_reversi.data.remote.UserStatsResponse
 import com.example.random_reversi.ui.theme.*
-import com.example.random_reversi.utils.AvatarPresets
+import com.example.random_reversi.utils.AvatarImage
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -450,32 +449,25 @@ private fun Header(username: String, elo: Int, avatarUrl: String?, isOwnProfile:
                 .background(Color.White, RoundedCornerShape(6.dp))
                 .padding(3.dp)
         ) {
-            val presetRes = AvatarPresets.drawableForId(avatarUrl)
-            when {
-                presetRes != null -> Image(
-                    painter = painterResource(presetRes),
-                    contentDescription = "Avatar",
-                    modifier = Modifier.size(62.dp).clip(RoundedCornerShape(4.dp)),
-                    contentScale = ContentScale.Crop
-                )
-                !avatarUrl.isNullOrBlank() -> AsyncImage(
-                    model = avatarUrl,
-                    contentDescription = "Avatar",
-                    modifier = Modifier.size(62.dp).clip(RoundedCornerShape(4.dp)),
-                    contentScale = ContentScale.Crop
-                )
-                else -> Box(
-                    modifier = Modifier.size(62.dp).clip(RoundedCornerShape(4.dp)).background(PrimaryColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        username.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp
-                    )
+            AvatarImage(
+                avatarUrl = avatarUrl,
+                contentDescription = "Avatar",
+                modifier = Modifier.size(62.dp).clip(RoundedCornerShape(4.dp)),
+                contentScale = ContentScale.Crop,
+                fallback = {
+                    Box(
+                        modifier = Modifier.size(62.dp).clip(RoundedCornerShape(4.dp)).background(PrimaryColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            username.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
+                        )
+                    }
                 }
-            }
+            )
         }
 
         Spacer(modifier = Modifier.width(14.dp))

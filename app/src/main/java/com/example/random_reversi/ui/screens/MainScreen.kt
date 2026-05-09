@@ -26,14 +26,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import coil.compose.AsyncImage
 import com.example.random_reversi.R
 import com.example.random_reversi.data.SessionManager
 import com.example.random_reversi.data.UserProfileStore
 import com.example.random_reversi.ui.components.ConfirmModal
 import com.example.random_reversi.ui.components.GameModeModal
 import com.example.random_reversi.ui.theme.*
-import com.example.random_reversi.utils.AvatarPresets
+import com.example.random_reversi.utils.AvatarImage
 
 @Composable
 fun MainScreen(onNavigate: (screen: String) -> Unit) {
@@ -300,29 +299,20 @@ private fun UserProfileAndLogout(
                     .background(Color(0xFF264653)),
                 contentAlignment = Alignment.Center
             ) {
-                val presetRes = AvatarPresets.drawableForId(avatarUrl)
-                if (presetRes != null) {
-                    Image(
-                        painter = painterResource(id = presetRes),
-                        contentDescription = "Avatar",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else if (!avatarUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = avatarUrl,
-                        contentDescription = "Avatar",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Text(
-                        text = userName.firstOrNull()?.toString()?.lowercase() ?: "?",
-                        color = Color(0xFFE9C46A),
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
+                AvatarImage(
+                    avatarUrl = avatarUrl,
+                    contentDescription = "Avatar",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    fallback = {
+                        Text(
+                            text = userName.firstOrNull()?.toString()?.lowercase() ?: "?",
+                            color = Color(0xFFE9C46A),
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                )
             }
 
             // Capa Superior (Marco)

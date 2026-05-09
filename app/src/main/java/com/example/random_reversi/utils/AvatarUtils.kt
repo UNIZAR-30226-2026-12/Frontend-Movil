@@ -1,30 +1,73 @@
 package com.example.random_reversi.utils
 
-//import com.example.random_reversi.R
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import coil.compose.AsyncImage
 
 object AvatarUtils {
-    /**
-     * Lista de IDs de recursos correspondientes a las imágenes de avatar.
-     * Asegúrate de copiar tus archivos (purplesun.png, bluefire.png, etc.) 
-     * a app/src/main/res/drawable/
-     */
-    /*
-    private val AVATARS = listOf(
-        R.drawable.purplesun,
-        R.drawable.bluefire,
-        R.drawable.whitegrass,
-        R.drawable.blackice
-    ) */
 
-    /**
-     * Traduce la lógica de JS: (hash * 31 + charCode) >>> 0
-     * En Kotlin/Java, String.hashCode() ya implementa (hash * 31 + char),
-     * y usamos .toUInt() para simular el desplazamiento sin signo (>>> 0).
-     */
-    /*fun getAvatarFromSeed(seed: Any): Int {
-        val value = seed.toString()
-        val hash = value.hashCode().toUInt()
-        val index = (hash % AVATARS.size.toUInt()).toInt()
-        return AVATARS[index]
-    }*/
+    private const val DATA_URI_PREFIX = "data:"
+
+    fun isDataUri(value: String?): Boolean =
+        !value.isNullOrBlank() && value.startsWith(DATA_URI_PREFIX)
+
+    fun decodeDataUriToBytes(dataUri: String): ByteArray? {
+        val commaIndex = dataUri.indexOf(',')
+        if (commaIndex < 0) return null
+        val header = dataUri.substring(0, commaIndex)
+        val payload = dataUri.substring(commaIndex + 1)
+        if (!header.contains(";base64")) return null
+        return runCatching { Base64.decode(payload, Base64.DEFAULT) }.getOrNull()
+    }
+}
+
+@Composable
+fun AvatarImage(
+    avatarUrl: String?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+    fallback: @Composable () -> Unit = {}
+) {
+    val presetRes = AvatarPresets.drawableForId(avatarUrl)
+    when {
+        presetRes != null -> Image(
+            painter = painterResource(id = presetRes),
+            contentDescription = contentDescription,
+            contentScale = contentScale,
+            modifier = modifier
+        )
+        AvatarUtils.isDataUri(avatarUrl) -> {
+            val bitmap = remember(avatarUrl) {
+                AvatarUtils.decodeDataUriToBytes(avatarUrl!!)?.let { bytes ->
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }
+            }
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = contentDescription,
+                    contentScale = contentScale,
+                    modifier = modifier
+                )
+            } else {
+                fallback()
+            }
+        }
+        !avatarUrl.isNullOrBlank() -> AsyncImage(
+            model = avatarUrl,
+            contentDescription = contentDescription,
+            contentScale = contentScale,
+            modifier = modifier
+        )
+        else -> fallback()
+    }
 }
