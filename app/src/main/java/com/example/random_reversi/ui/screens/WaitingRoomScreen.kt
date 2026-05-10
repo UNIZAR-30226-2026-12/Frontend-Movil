@@ -95,9 +95,12 @@ fun WaitingRoomScreen(
     onNavigate: (String) -> Unit
 ) {
     val normalizedGameMode = remember(gameMode) {
-        if (gameMode.lowercase().contains("1vs1vs1vs1") || gameMode.lowercase().contains("1v1v1v1")) "1vs1vs1vs1"
+        val base = if (gameMode.endsWith("_skills")) gameMode.removeSuffix("_skills") else gameMode
+        if (base.lowercase().contains("1vs1vs1vs1") || base.lowercase().contains("1v1v1v1")) "1vs1vs1vs1"
         else "1vs1"
     }
+    val isSkillsVariant = remember(gameMode) { gameMode.endsWith("_skills") }
+    val variant = remember(isSkillsVariant) { if (isSkillsVariant) "skills" else "classic" }
     val profile by UserProfileStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     val ws = remember(gameId) { if (gameId > 0) GameWebSocket(gameId) else null }
@@ -289,7 +292,7 @@ fun WaitingRoomScreen(
     LaunchedEffect(lobbyStatus) {
         if (lobbyStatus == "playing") {
             delay(900)
-            onNavigate("game-$normalizedGameMode/$gameId/$returnTo")
+            onNavigate("game-$normalizedGameMode/$gameId/$returnTo/$variant")
         }
     }
 

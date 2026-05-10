@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -64,6 +66,7 @@ import com.example.random_reversi.data.remote.FriendInfo
 import com.example.random_reversi.data.remote.GameInviteInfo
 import com.example.random_reversi.data.remote.PausedGameInfo
 import com.example.random_reversi.data.remote.SocialPanelResponse
+import com.example.random_reversi.ui.components.GameModeModal
 import com.example.random_reversi.ui.navigation.NavigationMessages
 import com.example.random_reversi.ui.theme.*
 import com.example.random_reversi.utils.AvatarImage
@@ -96,7 +99,12 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
     // ── Toast ─────────────────────────────────────────────────────────
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
-    // ── Funciones de carga ────────────────────────────────────────────
+    // ── Diálogo "Duelo" (selector de modo para invitar amigos) ────────────────
+    var showDuelModalForFriend by remember { mutableStateOf<FriendInfo?>(null) }
+    // Triple(amigo inicial, fullMode, lista de IDs adicionales seleccionados)
+    var pending4PDuel by remember { mutableStateOf<Triple<FriendInfo, String, List<Int>>?>(null) }
+
+    // ── Funciones de carga ───────────────────────────────────────────────
     fun loadPanel() {
         scope.launch {
             loading = true
@@ -303,22 +311,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                                     chatLoading = false
                                                 }
                                             },
-                                            onInvite1v1 = {
-                                                scope.launch {
-                                                    when (val result = GamesRepository.inviteFriends("1vs1", listOf(friend.id))) {
-                                                        is UserResult.Success -> onNavigate("waiting-room/1vs1/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
-                                                        is UserResult.Error -> showToast(result.message)
-                                                    }
-                                                }
-                                            },
-                                            onInvite4p = {
-                                                scope.launch {
-                                                    when (val result = GamesRepository.inviteFriends("1vs1vs1vs1", listOf(friend.id))) {
-                                                        is UserResult.Success -> onNavigate("waiting-room/1vs1vs1vs1/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
-                                                        is UserResult.Error -> showToast(result.message)
-                                                    }
-                                                }
-                                            },
+                                            onDuel = { showDuelModalForFriend = friend },
                                             onRemove = {
                                                 scope.launch {
                                                     when (FriendsRepository.removeFriend(friend.id)) {
@@ -781,7 +774,154 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
         }
     }
 
+    // ── Modal "Duelo" (selector de modo + variante para invitar amigos) ──────────────────
+    showDuelModalForFriend?.let { friend ->
+        GameModeModal(
+            isOpen = true,
+            onClose = { showDuelModalForFriend = null },
+            title = "Duelo vs ${friend.name}",
+            subtitle = "Elige el modo y variante",
+            onSelectMode = { fullMode ->
+                // fullMode: "1vs1", "1vs1_skills", "1vs1vs1vs1", "1vs1vs1vs1_skills"
+                val isSkills = fullMode.endsWith("_skills")
+                val baseMode = if (isSkills) fullMode.removeSuffix("_skills") else fullMode
+                val is4P = baseMode == "1vs1vs1vs1"
+
+                if (is4P) {
+                    // Para 4P mostrar selector de 2 amigos adicionales
+                    showDuelModalForFriend = null
+                    pending4PDuel = Triple(friend, fullMode, emptyList())
+                } else {
+                    showDuelModalForFriend = null
+                    scope.launch {
+                        // Para 1v1 invitar directamente
+                        when (val result = GamesRepository.inviteFriends(baseMode, listOf(friend.id))) {
+                            is UserResult.Success -> {
+                                // Pasar el modo completo (con _skills) al waiting-room
+                                onNavigate("waiting-room/$fullMode/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
+                            }
+                            is UserResult.Error -> showToast(result.message)
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // ── Selector de amigos adicionales para 4P ────────────────────────────────
+    pending4PDuel?.let { (initialFriend, fullMode, selectedIds) ->
+        val isSkills = fullMode.endsWith("_skills")
+        val baseMode = if (isSkills) fullMode.removeSuffix("_skills") else fullMode
+        val availableFriends = panel?.friends?.filter { it.id != initialFriend.id } ?: emptyList()
+
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { pending4PDuel = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .widthIn(max = 450.dp)
+                    .background(Color(0xFFF7F1E5), RoundedCornerShape(16.dp))
+                    .border(2.dp, Color(0xFF2F2418), RoundedCornerShape(16.dp))
+                    .padding(20.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Invitar amigos al 4P",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 20.sp,
+                        color = Color(0xFF1F1711)
+                    )
+                    Text(
+                        "Selecciona hasta 2 amigos más (${selectedIds.size}/2)",
+                        fontSize = 13.sp,
+                        color = Color(0xFF4D3F31)
+                    )
+                    // Amigo inicial (ya seleccionado, no editable)
+                    Surface(
+                        color = AccentGreen.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(initialFriend.name, color = TextColor, fontWeight = FontWeight.Bold)
+                            Text("✓ Invitado", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    // Lista de otros amigos
+                    availableFriends.forEach { friend ->
+                        val isSelected = friend.id in selectedIds
+                        Surface(
+                            color = if (isSelected) Color(0xFF8B5CF6).copy(alpha = 0.15f) else Color.White.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    1.5.dp,
+                                    if (isSelected) Color(0xFF8B5CF6) else Color(0xFFCBBFA8),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    val newIds = if (isSelected) {
+                                        selectedIds - friend.id
+                                    } else if (selectedIds.size < 2) {
+                                        selectedIds + friend.id
+                                    } else selectedIds
+                                    pending4PDuel = Triple(initialFriend, fullMode, newIds)
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(friend.name, color = TextColor, fontWeight = FontWeight.SemiBold)
+                                if (isSelected) Text("✓", color = Color(0xFF8B5CF6), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    if (availableFriends.isEmpty()) {
+                        Text("No tienes más amigos disponibles.", color = TextMutedColor, fontSize = 13.sp)
+                    }
+                    // Botones
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            onClick = { pending4PDuel = null },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Cancelar", color = TextMutedColor) }
+                        Button(
+                            onClick = {
+                                if (selectedIds.isEmpty()) {
+                                    scope.launch { showToast("Selecciona al menos 1 amigo más") }
+                                    return@Button
+                                }
+                                pending4PDuel = null
+                                val allIds = listOf(initialFriend.id) + selectedIds
+                                scope.launch {
+                                    when (val result = GamesRepository.inviteFriends(baseMode, allIds)) {
+                                        is UserResult.Success -> {
+                                            onNavigate("waiting-room/$fullMode/${result.data.game_id}/friends/${Uri.encode(initialFriend.name)}")
+                                        }
+                                        is UserResult.Error -> showToast(result.message)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = selectedIds.isNotEmpty(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6))
+                        ) { Text("Invitar (${selectedIds.size + 1}/4)", color = Color.White) }
+                    }
+                }
+            }
+        }
+    }
+
     if (chatFriend != null) {
+
         ChatDialog(
             friend = chatFriend!!,
             globalStatusMap = globalStatusMap,
@@ -822,8 +962,7 @@ private fun FriendRow(
     globalStatusMap: Map<Int, String?>,
     onProfile: () -> Unit,
     onChat: () -> Unit,
-    onInvite1v1: () -> Unit,
-    onInvite4p: () -> Unit,
+    onDuel: () -> Unit,
     onRemove: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -912,8 +1051,7 @@ private fun FriendRow(
             ) {
                 ActionButton("Perfil", AccentGreen, Modifier.weight(1f)) { onProfile() }
                 ActionButton("Chat", Color(0xFF3B82F6), Modifier.weight(1f)) { onChat() }
-                ActionButton("1v1", SecondaryColor, Modifier.weight(1f)) { onInvite1v1() }
-                ActionButton("4P", Color(0xFF8B5CF6), Modifier.weight(1f)) { onInvite4p() }
+                ActionButton("Duelo", Color(0xFF8B5CF6), Modifier.weight(1f)) { onDuel() }
                 ActionButton("🗑️", Color(0xFFF87171), Modifier.weight(0.5f)) { onRemove() }
             }
         }

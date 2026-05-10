@@ -251,7 +251,7 @@ fun GameBoard1v1v1v1Screen(
         abandonNotice = null
     }
 
-    // ── Detectar uso de habilidad por cambio de inventario (4P) ────────────────
+    // ── Detectar uso de habilidad por cambio de inventario (4P) ──────────────────
     LaunchedEffect(skillsInventory, myUsername) {
         fun invOf(piece: String): List<String> = when (piece) {
             "black" -> skillsInventory.black
@@ -264,21 +264,42 @@ fun GameBoard1v1v1v1Screen(
         val myInv = invOf(myPiece)
         val opponentPieces = PIECE_ORDER_4P.filter { it != myPiece }
 
-        // Detectar que YO usé una habilidad
-        if (previousMyInventory.isNotEmpty() && myInv.size < previousMyInventory.size) {
-            val usedSkill = previousMyInventory.firstOrNull { !myInv.contains(it) }
+        // Diff de contenido (multiset): qué elementos salieron / entraron
+        fun multisetSubtract(from: List<String>, minus: List<String>): List<String> {
+            val remaining = minus.toMutableList()
+            return from.filter { item ->
+                val idx = remaining.indexOf(item)
+                if (idx >= 0) { remaining.removeAt(idx); false } else true
+            }
+        }
+
+        val myLost   = multisetSubtract(previousMyInventory, myInv)
+        val myGained = multisetSubtract(myInv, previousMyInventory)
+
+        // Calcular qué gano en total de todos los rivales
+        val allOppGained = opponentPieces.flatMap { piece ->
+            val prev = previousOpponentInventories[piece] ?: emptyList()
+            multisetSubtract(invOf(piece), prev)
+        }
+
+        // YO usé una habilidad
+        val iWasRobbed = myLost.any { it in allOppGained }
+        if (myLost.isNotEmpty() && !iWasRobbed) {
+            val usedSkill = myLost.firstOrNull()
             if (usedSkill != null) {
                 skillUsedPopup = com.example.random_reversi.data.remote.SkillUsedEvent(usedSkill, myUsername, true)
             }
         }
-        previousMyInventory = myInv
 
         // Detectar que algún rival usó una habilidad
         opponentPieces.forEach { piece ->
             val prevInv = previousOpponentInventories[piece] ?: emptyList()
             val currInv = invOf(piece)
-            if (prevInv.isNotEmpty() && currInv.size < prevInv.size) {
-                val usedSkill = prevInv.firstOrNull { !currInv.contains(it) }
+            val oppLost = multisetSubtract(prevInv, currInv)
+            // Excluir items que acabaron en MI inventario (fueron transferidos a mí)
+            val oppTrueUsed = oppLost.filter { it !in myGained }
+            if (oppTrueUsed.isNotEmpty()) {
+                val usedSkill = oppTrueUsed.firstOrNull()
                 if (usedSkill != null) {
                     val rivalName = gameState.username_by_piece[piece]
                         ?: playerByPiece[piece]?.username ?: piece
@@ -286,6 +307,8 @@ fun GameBoard1v1v1v1Screen(
                 }
             }
         }
+
+        previousMyInventory = myInv
         previousOpponentInventories = opponentPieces.associateWith { invOf(it) }
     }
 
@@ -372,6 +395,18 @@ fun GameBoard1v1v1v1Screen(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Botón Pausar — solo visible en partidas de amigos
+            if (returnTo == "friends") {
+                Image(
+                    painter = painterResource(id = R.drawable.botonpausa),
+                    contentDescription = "Pausar",
+                    modifier = Modifier
+                        .height(50.dp)
+                        .clickable { showPauseConfirm = true },
+                    contentScale = ContentScale.FillHeight
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
             Image(
                 painter = painterResource(id = R.drawable.salamovil_abandonar),
                 contentDescription = "Abandonar",

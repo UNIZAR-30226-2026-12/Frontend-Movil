@@ -252,20 +252,43 @@ fun GameBoard1v1Screen(
         val myInv = if (effectiveMyPiece == "black") skillsInventory.black else skillsInventory.white
         val oppInv = if (effectiveMyPiece == "black") skillsInventory.white else skillsInventory.black
 
-        // Detectar que YO usé una habilidad
-        if (previousMyInventory.isNotEmpty() && myInv.size < previousMyInventory.size) {
-            val usedSkill = previousMyInventory.firstOrNull { !myInv.contains(it) }
-            if (usedSkill != null) {
-                skillUsedPopup = SkillUsedEvent(usedSkill, myUsername, true)
+        // Diff de contenido (multiset): qué elementos salieron / entraron en cada inventario
+        fun multisetSubtract(from: List<String>, minus: List<String>): List<String> {
+            val remaining = minus.toMutableList()
+            return from.filter { item ->
+                val idx = remaining.indexOf(item)
+                if (idx >= 0) { remaining.removeAt(idx); false } else true
             }
         }
-        // Detectar que el rival usó una habilidad (su inventario se redujo)
-        if (previousOpponentInventory.isNotEmpty() && oppInv.size < previousOpponentInventory.size) {
-            val usedSkill = previousOpponentInventory.firstOrNull { !oppInv.contains(it) }
-            if (usedSkill != null) {
-                skillUsedPopup = SkillUsedEvent(usedSkill, opponentName, false)
+
+        if (previousMyInventory.isNotEmpty() || previousOpponentInventory.isNotEmpty()) {
+            val myLost    = multisetSubtract(previousMyInventory,     myInv)
+            val myGained  = multisetSubtract(myInv,                   previousMyInventory)
+            val oppLost   = multisetSubtract(previousOpponentInventory, oppInv)
+
+            // YO usé una habilidad: algo salió de mi inventario
+            // Para steal_skill: pierdo "steal_skill" y gano la robada → myLost=["steal_skill"]
+            // Descartamos items que en realidad me los robó el rival (oppGained)
+            val oppGained = multisetSubtract(oppInv, previousOpponentInventory)
+            val iWasRobbed = myLost.any { it in oppGained }
+            if (myLost.isNotEmpty() && !iWasRobbed) {
+                val usedSkill = myLost.firstOrNull()
+                if (usedSkill != null) {
+                    skillUsedPopup = SkillUsedEvent(usedSkill, myUsername, true)
+                }
+            }
+
+            // El RIVAL usó una habilidad: algo salió de su inventario Y
+            // ese item NO acabó en MI inventario (no fue transferido a mí)
+            val oppTrueUsed = oppLost.filter { it !in myGained }
+            if (oppTrueUsed.isNotEmpty()) {
+                val usedSkill = oppTrueUsed.firstOrNull()
+                if (usedSkill != null) {
+                    skillUsedPopup = SkillUsedEvent(usedSkill, opponentName, false)
+                }
             }
         }
+
         previousMyInventory = myInv
         previousOpponentInventory = oppInv
     }
@@ -380,8 +403,18 @@ fun GameBoard1v1Screen(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            
+            // Botón Pausar — solo visible en partidas de amigos
+            if (returnTo == "friends") {
+                Image(
+                    painter = painterResource(id = R.drawable.botonpausa),
+                    contentDescription = "Pausar",
+                    modifier = Modifier
+                        .height(50.dp)
+                        .clickable { showPauseConfirm = true },
+                    contentScale = ContentScale.FillHeight
+                )
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(8.dp))
+            }
             Image(
                 painter = painterResource(id = R.drawable.salamovil_abandonar),
                 contentDescription = "Abandonar",
