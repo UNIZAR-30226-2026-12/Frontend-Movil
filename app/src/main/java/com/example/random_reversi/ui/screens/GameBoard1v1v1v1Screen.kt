@@ -401,7 +401,7 @@ fun GameBoard1v1v1v1Screen(
                     painter = painterResource(id = R.drawable.botonpausa),
                     contentDescription = "Pausar",
                     modifier = Modifier
-                        .height(50.dp)
+                        .height(55.dp)
                         .clickable { showPauseConfirm = true },
                     contentScale = ContentScale.FillHeight
                 )
@@ -411,7 +411,7 @@ fun GameBoard1v1v1v1Screen(
                 painter = painterResource(id = R.drawable.salamovil_abandonar),
                 contentDescription = "Abandonar",
                 modifier = Modifier
-                    .height(65.dp)
+                    .height(55.dp)
                     .clickable { showLeaveConfirm = true },
                 contentScale = ContentScale.FillHeight
             )

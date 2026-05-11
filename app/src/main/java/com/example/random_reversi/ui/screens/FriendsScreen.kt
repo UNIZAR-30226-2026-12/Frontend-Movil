@@ -794,10 +794,9 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                 } else {
                     showDuelModalForFriend = null
                     scope.launch {
-                        // Para 1v1 invitar directamente
-                        when (val result = GamesRepository.inviteFriends(baseMode, listOf(friend.id))) {
+                        // Para 1v1 invitar con el modo completo (incluyendo _skills si aplica)
+                        when (val result = GamesRepository.inviteFriends(fullMode, listOf(friend.id))) {
                             is UserResult.Success -> {
-                                // Pasar el modo completo (con _skills) al waiting-room
                                 onNavigate("waiting-room/$fullMode/${result.data.game_id}/friends/${Uri.encode(friend.name)}")
                             }
                             is UserResult.Error -> showToast(result.message)
@@ -902,7 +901,7 @@ fun FriendsScreen(onNavigate: (String) -> Unit) {
                                 pending4PDuel = null
                                 val allIds = listOf(initialFriend.id) + selectedIds
                                 scope.launch {
-                                    when (val result = GamesRepository.inviteFriends(baseMode, allIds)) {
+                                    when (val result = GamesRepository.inviteFriends(fullMode, allIds)) {
                                         is UserResult.Success -> {
                                             onNavigate("waiting-room/$fullMode/${result.data.game_id}/friends/${Uri.encode(initialFriend.name)}")
                                         }
@@ -1255,7 +1254,8 @@ private fun PausedGameRow(
                 if (game.participants.isNotEmpty()) {
                     Text(
                         "Con: ${game.participants.joinToString(", ")}",
-                        color = TextMutedColor,
+                        color = Color.Black,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
