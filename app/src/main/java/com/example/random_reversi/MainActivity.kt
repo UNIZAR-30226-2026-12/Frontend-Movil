@@ -34,6 +34,7 @@ import com.example.random_reversi.ui.screens.ProfileScreen
 import com.example.random_reversi.ui.screens.WaitingRoomScreen
 import com.example.random_reversi.ui.screens.RankingScreen
 import com.example.random_reversi.ui.theme.ReversiTheme
+import com.example.random_reversi.data.remote.NotificationsWebSocket
 
 private fun normalizeInviteMode(mode: String?): String = when (mode?.trim()?.lowercase()) {
     "1vs1vs1vs1", "1v1v1v1" -> "1vs1vs1vs1"
@@ -65,7 +66,13 @@ fun AppNavigation() {
     val route = parts[0]
 
     LaunchedEffect(route) {
-        if (route == "home") return@LaunchedEffect
+        if (route == "home") {
+            NotificationsWebSocket.disconnect()
+            return@LaunchedEffect
+        }
+        
+        NotificationsWebSocket.connect()
+        
         while (true) {
             when (val result = FriendsRepository.getSocialPanel()) {
                 is UserResult.Success -> {

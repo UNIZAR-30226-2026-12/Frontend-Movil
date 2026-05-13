@@ -62,12 +62,21 @@ fun AvatarImage(
                 fallback()
             }
         }
-        !avatarUrl.isNullOrBlank() -> AsyncImage(
-            model = avatarUrl,
-            contentDescription = contentDescription,
-            contentScale = contentScale,
-            modifier = modifier
-        )
+        !avatarUrl.isNullOrBlank() -> {
+            val fullUrl = if (avatarUrl.startsWith("http")) {
+                avatarUrl
+            } else {
+                val baseUrl = com.example.random_reversi.BuildConfig.API_BASE_URL.trimEnd('/')
+                val path = if (avatarUrl.startsWith("/")) avatarUrl else "/$avatarUrl"
+                "$baseUrl$path"
+            }
+            AsyncImage(
+                model = fullUrl,
+                contentDescription = contentDescription,
+                contentScale = contentScale,
+                modifier = modifier
+            )
+        }
         else -> fallback()
     }
 }

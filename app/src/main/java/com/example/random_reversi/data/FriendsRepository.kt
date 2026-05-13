@@ -37,7 +37,14 @@ object FriendsRepository {
             if (response.isSuccessful) {
                 UserResult.Success(response.body()?.message ?: "Solicitud enviada")
             } else {
-                val errorMsg = when (response.code()) {
+                // Intentar extraer el "detail" del body de error del backend
+                val errorBody = response.errorBody()?.string() ?: ""
+                val detail = try {
+                    com.google.gson.JsonParser.parseString(errorBody)
+                        .asJsonObject.get("detail")?.asString
+                } catch (_: Exception) { null }
+
+                val errorMsg = detail ?: when (response.code()) {
                     404 -> "Usuario no encontrado"
                     409 -> "Ya existe una solicitud pendiente"
                     else -> "Error al enviar solicitud (${response.code()})"

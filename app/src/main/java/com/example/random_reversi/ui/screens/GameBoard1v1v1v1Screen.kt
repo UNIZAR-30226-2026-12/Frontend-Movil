@@ -1231,8 +1231,15 @@ private fun AvatarCircle4p(name: String, avatarUrl: String?, modifier: Modifier 
                     )
                 }
                 !avatarUrl.isNullOrBlank() -> {
+                    val fullUrl = if (avatarUrl.startsWith("http") || avatarUrl.startsWith("data:")) {
+                        avatarUrl
+                    } else {
+                        val baseUrl = com.example.random_reversi.BuildConfig.API_BASE_URL.trimEnd('/')
+                        val path = if (avatarUrl.startsWith("/")) avatarUrl else "/$avatarUrl"
+                        "$baseUrl$path"
+                    }
                     AsyncImage(
-                        model = avatarUrl,
+                        model = fullUrl,
                         contentDescription = "Avatar",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
