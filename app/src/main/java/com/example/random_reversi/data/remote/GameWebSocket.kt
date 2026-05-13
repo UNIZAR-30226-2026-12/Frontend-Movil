@@ -385,13 +385,23 @@ class GameWebSocket(
         webSocket?.send(json)
     }
 
-    fun sendSkillInstant(abilityType: String, targetPlayer: String, inventoryIndex: Int, targetInventoryIndex: Int = 0) {
+    fun sendSkillInstant(abilityType: String, targetPlayer: String, inventoryIndex: Int) {
+        val json = gson.toJson(mapOf(
+            "action" to "use_skill",
+            "type" to abilityType,
+            "target_player" to targetPlayer,
+            "inventory_index" to inventoryIndex
+        ))
+        webSocket?.send(json)
+    }
+
+    fun sendSkillWithGiven(abilityType: String, targetPlayer: String, inventoryIndex: Int, givenSkillIndex: Int) {
         val json = gson.toJson(mapOf(
             "action" to "use_skill",
             "type" to abilityType,
             "target_player" to targetPlayer,
             "inventory_index" to inventoryIndex,
-            "target_inventory_index" to targetInventoryIndex
+            "given_skill_index" to givenSkillIndex
         ))
         webSocket?.send(json)
     }

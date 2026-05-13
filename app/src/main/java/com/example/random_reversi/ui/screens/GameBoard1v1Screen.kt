@@ -97,6 +97,7 @@ val ABILITY_META_MOVIL = mapOf(
 )
 
 data class PendingAbilityMobile(val abilityId: String, val inventoryIndex: Int)
+data class PendingTransferSkillMobile(val abilityId: String, val inventoryIndex: Int)
 
 data class BoardPlayer(
     val username: String,
@@ -137,6 +138,7 @@ fun GameBoard1v1Screen(
     val skillsInventory by ws?.skillsInventory?.collectAsState()
         ?: remember { mutableStateOf(SkillsInventory()) }
     var pendingAbility by remember { mutableStateOf<PendingAbilityMobile?>(null) }
+    var pendingTransferSkill by remember { mutableStateOf<PendingTransferSkillMobile?>(null) }
     var selectingGravityFor by remember { mutableStateOf<Int?>(null) } // inventoryIndex
     var showGravityMenu by remember { mutableStateOf(false) }
     var skillErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -607,10 +609,10 @@ fun GameBoard1v1Screen(
                 ) {
                     if (myInventory.isEmpty()) {
                         // Habilidad pendiente activa aunque no haya inventario (e.g. gravedad)
-                        if (pendingAbility != null || selectingGravityFor != null) {
+                        if (pendingAbility != null || selectingGravityFor != null || pendingTransferSkill != null) {
                             SkillPendingBar(
                                 text = if (selectingGravityFor != null) "Elige dirección" else "Toca casilla objetivo",
-                                onCancel = { pendingAbility = null; selectingGravityFor = null; showGravityMenu = false }
+                                onCancel = { pendingAbility = null; selectingGravityFor = null; showGravityMenu = false; pendingTransferSkill = null }
                             )
                         } else {
                             Text(
@@ -637,6 +639,13 @@ fun GameBoard1v1Screen(
                                 },
                                 onCancel = { selectingGravityFor = null; showGravityMenu = false }
                             )
+                        } else if (pendingTransferSkill != null) {
+                            val pts = pendingTransferSkill!!
+                            val label = if (pts.abilityId == "exchange_skill") "¿Qué habilidad intercambias?" else "¿Qué habilidad das?"
+                            SkillPendingBar(
+                                text = label,
+                                onCancel = { pendingTransferSkill = null }
+                            )
                         } else {
                             LazyColumn(
                                 modifier = Modifier
@@ -659,6 +668,13 @@ fun GameBoard1v1Screen(
                                                 canUse = canUse,
                                                 onClick = {
                                                     if (!canUse) return@SkillButton
+                                                    // Si hay un transfer pendiente, este clic elige la habilidad a dar
+                                                    val pts = pendingTransferSkill
+                                                    if (pts != null && idx != pts.inventoryIndex) {
+                                                        ws?.sendSkillWithGiven(pts.abilityId, opponentColor, pts.inventoryIndex, idx)
+                                                        pendingTransferSkill = null
+                                                        return@SkillButton
+                                                    }
                                                     // Validar condiciones de uso
                                                     val rivalHasFixed = gameState.fixed_pieces.any { cell ->
                                                         val pieceAt = gameState.board.getOrNull(cell[0])?.getOrNull(cell[1])
@@ -668,7 +684,7 @@ fun GameBoard1v1Screen(
                                                         "steal_skill"    -> if (opponentInventory.isEmpty()) "El rival no tiene habilidades que robar." else null
                                                         "give_skill"     -> if (myInventory.size < 2) "No tienes ninguna otra habilidad para dar al rival." else null
                                                         "exchange_skill" -> when {
-                                                            myInventory.size < 2     -> "No tienes ninguna otra habilidad para intercambiar."
+                                                            myInventory.size < 2        -> "No tienes ninguna otra habilidad para intercambiar."
                                                             opponentInventory.isEmpty() -> "El rival no tiene habilidades para intercambiar."
                                                             else                        -> null
                                                         }
@@ -682,22 +698,13 @@ fun GameBoard1v1Screen(
                                                     if (abilityId == "gravity") {
                                                         selectingGravityFor = idx
                                                         showGravityMenu = true
+                                                    } else if (abilityId == "exchange_skill" || abilityId == "give_skill") {
+                                                        pendingTransferSkill = PendingTransferSkillMobile(abilityId, idx)
                                                     } else if (meta.needsTarget) {
                                                         pendingAbility = if (isSelected) null
                                                         else PendingAbilityMobile(abilityId, idx)
                                                     } else {
-                                                        // Para habilidades sociales necesitamos target_inventory_index
-                                                        val targetInvIndex = when (abilityId) {
-                                                            "steal_skill", "exchange_skill" ->
-                                                                // Índice 0: primer habilidad del rival
-                                                                0
-                                                            "give_skill" ->
-                                                                // Primera habilidad nuestra que NO sea el propio give_skill
-                                                                myInventory.indexOfFirst { it != "give_skill" }
-                                                                    .takeIf { it >= 0 } ?: 0
-                                                            else -> 0
-                                                        }
-                                                        ws?.sendSkillInstant(abilityId, opponentColor, idx, targetInvIndex)
+                                                        ws?.sendSkillInstant(abilityId, opponentColor, idx)
                                                     }
                                                 }
                                             )
