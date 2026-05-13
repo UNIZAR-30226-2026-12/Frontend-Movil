@@ -50,7 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.example.random_reversi.utils.AvatarImage
 import com.example.random_reversi.R
 import com.example.random_reversi.data.UserRepository
 import com.example.random_reversi.data.UserResult
@@ -61,7 +61,6 @@ import com.example.random_reversi.ui.theme.PrimaryColor
 import com.example.random_reversi.ui.theme.SecondaryColor
 import com.example.random_reversi.ui.theme.SurfaceColor
 import com.example.random_reversi.ui.theme.TextMutedColor
-import com.example.random_reversi.utils.AvatarPresets
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.animation.*
@@ -881,17 +880,19 @@ fun GameBoard1v1Screen(
                             fontWeight = FontWeight.ExtraBold
                         )
 
-                        Surface(
-                            color = (if (rrDelta >= 0) AccentGreen else PrimaryColor).copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(
-                                text = "${if (rrDelta >= 0) "+" else ""}$rrDelta RR",
-                                color = if (rrDelta >= 0) AccentGreen else PrimaryColor,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Black
-                            )
+                        if (returnTo != "menu") {
+                            Surface(
+                                color = (if (rrDelta >= 0) AccentGreen else PrimaryColor).copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    text = "${if (rrDelta >= 0) "+" else ""}$rrDelta RR",
+                                    color = if (rrDelta >= 0) AccentGreen else PrimaryColor,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
                         }
 
                         Column(
@@ -1076,32 +1077,12 @@ private fun AvatarBox(name: String, avatarUrl: String?, modifier: Modifier = Mod
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxSize()
         ) {
-            val presetRes = AvatarPresets.drawableForId(avatarUrl)
-            when {
-                presetRes != null -> {
-                    Image(
-                        painter = painterResource(id = presetRes),
-                        contentDescription = "Avatar",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                }
-                !avatarUrl.isNullOrBlank() -> {
-                    val fullUrl = if (avatarUrl.startsWith("http") || avatarUrl.startsWith("data:")) {
-                        avatarUrl
-                    } else {
-                        val baseUrl = com.example.random_reversi.BuildConfig.API_BASE_URL.trimEnd('/')
-                        val path = if (avatarUrl.startsWith("/")) avatarUrl else "/$avatarUrl"
-                        "$baseUrl$path"
-                    }
-                    AsyncImage(
-                        model = fullUrl,
-                        contentDescription = "Avatar",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                }
-                else -> {
+            AvatarImage(
+                avatarUrl = avatarUrl,
+                contentDescription = "Avatar",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+                fallback = {
                     Text(
                         text = name.firstOrNull()?.uppercase() ?: "?",
                         color = Color.White,
@@ -1109,7 +1090,7 @@ private fun AvatarBox(name: String, avatarUrl: String?, modifier: Modifier = Mod
                         fontSize = 14.sp
                     )
                 }
-            }
+            )
         }
     }
 }
@@ -1224,7 +1205,16 @@ private fun GameCell1v1(
             .then(if (isValidMove || isPendingTarget) Modifier.clickable { onClick() } else Modifier),
         contentAlignment = Alignment.Center
     ) {
-        // 1. Casilla interrogante (skill tile vacía) — debajo de la ficha y del indicador
+        // 1a. Fondo morado: solo cuando hay una ficha tapando una casilla de habilidad
+        if (isSkillTile && cellValue != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF7C3AED).copy(alpha = 0.60f))
+            )
+        }
+
+        // 1b. Interrogante — solo si la casilla está vacía
         if (isSkillTile && cellValue == null) {
             Image(
                 painter = painterResource(id = R.drawable.ingame_casillainterrogante),

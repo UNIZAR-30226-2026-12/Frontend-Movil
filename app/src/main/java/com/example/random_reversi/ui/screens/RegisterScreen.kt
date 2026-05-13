@@ -39,6 +39,7 @@ fun RegisterScreen(
     var passwordError by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isValidationError by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     Dialog(
@@ -79,11 +80,11 @@ fun RegisterScreen(
                     fontSize = 22.sp
                 )
 
-                // Error Ocular
+                // Mensaje de error — siempre en rojo
                 errorMessage?.let {
                     Text(
                         text = it,
-                        color = SecondaryColor,
+                        color = Color.Red,
                         fontSize = 13.sp
                     )
                 }
@@ -142,9 +143,17 @@ fun RegisterScreen(
                         .height(85.dp)
                         .padding(bottom = 32.dp)
                         .clickable(enabled = !isLoading) {
-                            if (username.isNotEmpty() && email.isNotEmpty() && 
-                                password.isNotEmpty() && password == confirmPassword && !isLoading) {
+                        if (username.isNotEmpty() && email.isNotEmpty() &&
+                            password.isNotEmpty() && password == confirmPassword && !isLoading) {
+
+                            // Validar formato de email: algo@algo
+                            val emailValid = Regex("^.+@.+$").matches(email.trim())
+                            if (!emailValid) {
+                                isValidationError = true
+                                errorMessage = "El correo debe tener el formato usuario@dominio"
+                            } else {
                                 passwordError = false
+                                isValidationError = false
                                 errorMessage = null
                                 isLoading = true
 
@@ -160,15 +169,18 @@ fun RegisterScreen(
                                             onClose()
                                         }
                                         is AuthResult.Error -> {
+                                            isValidationError = false
                                             errorMessage = result.message
                                         }
                                     }
                                     isLoading = false
                                 }
-                            } else if (password != confirmPassword) {
-                                passwordError = true
-                                errorMessage = "Las contraseñas no coinciden"
                             }
+                        } else if (password != confirmPassword) {
+                            passwordError = true
+                            isValidationError = true
+                            errorMessage = "Las contraseñas no coinciden"
+                        }
                         },
                     contentScale = ContentScale.Fit
                 )

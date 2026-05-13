@@ -21,10 +21,11 @@ object AuthRepository {
                 SessionManager.setToken(token)
                 AuthResult.Success(token = token)
             } else {
-                val errorMsg = when(response.code()) {
-                    404 -> "El usuario o correo ingresado no existe"
+                val errorMsg = when (response.code()) {
+                    400 -> "Usuario o contraseña incorrectos"
                     401 -> "Contraseña incorrecta"
-                    else -> "Login fallido (${response.code()})"
+                    404 -> "El usuario o correo ingresado no existe"
+                    else -> "Error al iniciar sesión (${response.code()})"
                 }
                 AuthResult.Error(errorMsg)
             }
@@ -41,7 +42,13 @@ object AuthRepository {
             if (response.isSuccessful) {
                 AuthResult.Success()
             } else {
-                AuthResult.Error("Registro fallido (${response.code()})")
+                val errorMsg = when (response.code()) {
+                    400 -> "El nombre de usuario o correo ya está en uso"
+                    409 -> "El nombre de usuario o correo ya está en uso"
+                    422 -> "Datos inválidos. Revisa los campos e inténtalo de nuevo"
+                    else -> "Error al registrarse (${response.code()})"
+                }
+                AuthResult.Error(errorMsg)
             }
         } catch (e: Exception) {
             AuthResult.Error(e.message ?: "Error de conexión")
