@@ -118,6 +118,7 @@ fun GameBoard1v1v1v1Screen(
         ?: remember { mutableStateOf(com.example.random_reversi.data.remote.SkillsInventory()) }
     var pendingAbility by remember { mutableStateOf<PendingAbilityMobile?>(null) }
     var pendingTransferSkill by remember { mutableStateOf<PendingTransferSkillMobile?>(null) }
+    var pendingTransferTarget by remember { mutableStateOf<PendingTransferTargetMobile?>(null) }
     var selectingGravityFor by remember { mutableStateOf<Int?>(null) } // inventoryIndex
     var showGravityMenu by remember { mutableStateOf(false) }
     var skillErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -170,6 +171,14 @@ fun GameBoard1v1v1v1Screen(
 
     val effectiveMyPiece = remember(myColor, gameState.username_by_piece, myUsername) {
         myColor ?: gameState.username_by_piece.entries.firstOrNull { it.value == myUsername }?.key
+    }
+
+    val myInventoryGlobal: List<String> = when (effectiveMyPiece) {
+        "black" -> skillsInventory.black
+        "white" -> skillsInventory.white
+        "red"   -> skillsInventory.red
+        "blue"  -> skillsInventory.blue
+        else    -> emptyList()
     }
 
     val isMyTurn = gameState.current_player == effectiveMyPiece
@@ -712,7 +721,7 @@ fun GameBoard1v1v1v1Screen(
                         if (pendingAbility != null || selectingGravityFor != null || pendingTransferSkill != null) {
                             SkillPendingBar(
                                 text = if (selectingGravityFor != null) "Elige dirección" else "Toca casilla objetivo",
-                                onCancel = { pendingAbility = null; selectingGravityFor = null; showGravityMenu = false; pendingTransferSkill = null }
+                                onCancel = { pendingAbility = null; selectingGravityFor = null; showGravityMenu = false; pendingTransferSkill = null; pendingTransferTarget = null }
                             )
                         } else {
                             Text(
@@ -738,13 +747,6 @@ fun GameBoard1v1v1v1Screen(
                                 },
                                 onCancel = { selectingGravityFor = null; showGravityMenu = false }
                             )
-                        } else if (pendingTransferSkill != null) {
-                            val pts = pendingTransferSkill!!
-                            val label = if (pts.abilityId == "exchange_skill") "¿Qué habilidad intercambias?" else "¿Qué habilidad das?"
-                            SkillPendingBar(
-                                text = label,
-                                onCancel = { pendingTransferSkill = null }
-                            )
                         } else {
                             LazyRow(
                                 modifier = Modifier
@@ -765,12 +767,10 @@ fun GameBoard1v1v1v1Screen(
                                         canUse = canUse,
                                         onClick = {
                                             if (!canUse) return@SkillButton
-                                            // Si hay un transfer pendiente, este clic elige la habilidad a dar
+                                            // Si hay un transfer pendiente, este clic elige la habilidad a dar → pedir jugador destino
                                             val pts = pendingTransferSkill
                                             if (pts != null && idx != pts.inventoryIndex) {
-                                                val opponents = playerByPiece.keys.filter { it != effectiveMyPiece && it in gameState.scores.keys }
-                                                val targetOpponent = opponents.maxByOrNull { gameState.scores[it] ?: 0 } ?: "black"
-                                                ws?.sendSkillWithGiven(pts.abilityId, targetOpponent, pts.inventoryIndex, idx)
+                                                pendingTransferTarget = PendingTransferTargetMobile(pts.abilityId, pts.inventoryIndex, idx)
                                                 pendingTransferSkill = null
                                                 return@SkillButton
                                             }
@@ -822,6 +822,84 @@ fun GameBoard1v1v1v1Screen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // Modal: elegir qué habilidad dar/intercambiar
+        AppModal(
+            isOpen = pendingTransferSkill != null,
+            onClose = { pendingTransferSkill = null },
+            maxWidth = 360.dp,
+            showCloseButton = true
+        ) {
+            val pts = pendingTransferSkill
+            if (pts != null) {
+                Text(
+                    if (pts.abilityId == "exchange_skill") "¿Qué habilidad quieres intercambiar?" else "¿Qué habilidad quieres dar?",
+                    color = TextColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                myInventoryGlobal.forEachIndexed { idx, abilityId ->
+                    if (idx == pts.inventoryIndex) return@forEachIndexed
+                    val meta = ABILITY_META_MOVIL[abilityId]
+                        ?: AbilityMeta(abilityId, R.drawable.ingame_casillainterrogante, true)
+                    Button(
+                        onClick = {
+                            pendingTransferTarget = PendingTransferTargetMobile(pts.abilityId, pts.inventoryIndex, idx)
+                            pendingTransferSkill = null
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                    ) {
+                        Text(meta.name, color = Color.White)
+                    }
+                }
+                TextButton(
+                    onClick = { pendingTransferSkill = null },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancelar", color = TextMutedColor)
+                }
+            }
+        }
+
+        // Modal: elegir jugador destino para give_skill / exchange_skill
+        AppModal(
+            isOpen = pendingTransferTarget != null,
+            onClose = { pendingTransferTarget = null },
+            maxWidth = 360.dp,
+            showCloseButton = true
+        ) {
+            val ptt = pendingTransferTarget
+            if (ptt != null) {
+                Text(
+                    if (ptt.abilityId == "exchange_skill") "¿Con quién quieres intercambiar?" else "¿A quién quieres dar la habilidad?",
+                    color = TextColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                val opponentPlayers = players.filter { it.piece != effectiveMyPiece && it.piece in gameState.scores.keys }
+                opponentPlayers.forEach { player ->
+                    Button(
+                        onClick = {
+                            ws?.sendSkillWithGiven(ptt.abilityId, player.piece, ptt.inventoryIndex, ptt.givenSkillIndex)
+                            pendingTransferTarget = null
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                    ) {
+                        Text(player.username, color = Color.White)
+                    }
+                }
+                TextButton(
+                    onClick = { pendingTransferTarget = null },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancelar", color = TextMutedColor)
                 }
             }
         }

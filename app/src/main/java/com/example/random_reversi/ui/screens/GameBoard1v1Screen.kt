@@ -98,6 +98,7 @@ val ABILITY_META_MOVIL = mapOf(
 
 data class PendingAbilityMobile(val abilityId: String, val inventoryIndex: Int)
 data class PendingTransferSkillMobile(val abilityId: String, val inventoryIndex: Int)
+data class PendingTransferTargetMobile(val abilityId: String, val inventoryIndex: Int, val givenSkillIndex: Int)
 
 data class BoardPlayer(
     val username: String,
@@ -639,18 +640,19 @@ fun GameBoard1v1Screen(
                                 },
                                 onCancel = { selectingGravityFor = null; showGravityMenu = false }
                             )
-                        } else if (pendingTransferSkill != null) {
-                            val pts = pendingTransferSkill!!
-                            val label = if (pts.abilityId == "exchange_skill") "¿Qué habilidad intercambias?" else "¿Qué habilidad das?"
-                            SkillPendingBar(
-                                text = label,
-                                onCancel = { pendingTransferSkill = null }
-                            )
                         } else {
+                            if (pendingTransferSkill != null) {
+                                val pts = pendingTransferSkill!!
+                                val label = if (pts.abilityId == "exchange_skill") "¿Qué habilidad intercambias?" else "¿Qué habilidad das?"
+                                SkillPendingBar(
+                                    text = label,
+                                    onCancel = { pendingTransferSkill = null }
+                                )
+                            }
                             LazyColumn(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(96.dp)
+                                    .height(if (pendingTransferSkill != null) 70.dp else 96.dp)
                                     .offset(x = 20.dp, y = 5.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -737,10 +739,11 @@ fun GameBoard1v1Screen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                if (returnTo == "friends" && hasOtherPausedPlayer && !localIsPaused)
-                    "Como la partida está pausada por el otro jugador, si abandonas ahora no perderás RR y la partida quedará invalidada."
-                else
-                    "Si abandonas esta partida en curso, se contará como una derrota en tu historial y perderás puntos RR.",
+                when {
+                    returnTo == "menu" -> "¿Estás seguro que deseas abandonar la partida?"
+                    returnTo == "friends" && hasOtherPausedPlayer && !localIsPaused -> "Como la partida está pausada por el otro jugador, si abandonas ahora no perderás RR y la partida quedará invalidada."
+                    else -> "Si abandonas esta partida en curso, se contará como una derrota en tu historial y perderás puntos RR."
+                },
                 color = TextMutedColor,
                 fontSize = 14.sp
             )
